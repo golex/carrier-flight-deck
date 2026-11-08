@@ -11,7 +11,7 @@ export const SIGNALS: { glyph: string; label: string }[] = [
   { glyph: '👍', label: 'Ready: hook-up crew and final checkers' },
   { glyph: '🙌', label: 'Shooter: final turn-up to full power' },
   { glyph: '🫡', label: 'Salute: plane captain, then the pilot' },
-  { glyph: '👉', label: 'Shooter: launch' },
+  { glyph: '👉', label: 'Point: the next director has the jet; the shooter: launch' },
   { glyph: '👇', label: 'Deck edge: fire' },
   { glyph: '🙅', label: 'Checker: suspend, arms crossed' },
   { glyph: '✋', label: 'Shooter: hold' },
@@ -33,6 +33,8 @@ export function signalGlyph(role: CrewRole, action: CrewAction): string | null {
       return '🫡'
     case 'pickle':
       return '🙋'
+    case 'pass':
+      return '👉'
     case 'signal-launch':
       return role === 'shooter' ? '👉' : '👇'
     case 'wave-off':

@@ -45,6 +45,10 @@
   --jet-pod: #5a6570;
   --jet-fin: #1e2124;
   --steam: rgba(255, 255, 255, 0.55);
+  /* the pilot's line of sight to the director */
+  --vision: rgba(47, 158, 68, 0.30);
+  --vision-2: rgba(47, 158, 68, 0);
+  --vision-ink: #2f9e44;
 
   --radius: 6px;
   --radius-sm: 4px;
@@ -196,6 +200,7 @@ button, input, select {
 .tick-bolter, .tick-waveoff { color: var(--jersey-red); }
 .sel-body { margin: 0 0 8px; font-size: 13.5px; }
 
+.sel-dir { margin: 4px 0 0; font-size: 13px; color: var(--vision-ink); }
 .legend { list-style: none; margin: 8px 0 0; padding: 0; }
 .legend-item { padding: 4px 0; }
 .legend-btn {

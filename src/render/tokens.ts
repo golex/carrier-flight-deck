@@ -24,6 +24,9 @@ export interface Tokens {
   jetPod: string
   jetFin: string
   steam: string
+  vision: string
+  vision2: string
+  visionInk: string
   jersey: Record<string, string>
   fontSans: string
   fontMono: string
@@ -61,6 +64,9 @@ export function tokens(): Tokens {
     jetPod: v('--jet-pod'),
     jetFin: v('--jet-fin'),
     steam: v('--steam'),
+    vision: v('--vision'),
+    vision2: v('--vision-2'),
+    visionInk: v('--vision-ink'),
     jersey: {
       yellow: v('--jersey-yellow'),
       green: v('--jersey-green'),

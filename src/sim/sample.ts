@@ -18,6 +18,12 @@ export interface AircraftState extends Omit<AircraftKeyframe, 't'> {
   /** wing fold progress 0 = folded, 1 = spread */
   wingSpread: number
   visible: boolean
+  /** crew id of the director (or shooter) the pilot is taking direction from, if any */
+  director: string | null
+  /** the director before the last hand-off, if any */
+  prevDirector: string | null
+  /** simulation seconds since the last hand-off */
+  directorSince: number
 }
 
 export interface CrewState extends Omit<CrewKeyframe, 't'> {
@@ -47,8 +53,22 @@ export function sampleAircraft(e: AircraftEntity, t: number): AircraftState | nu
   const spreadB = b.wings === 'spread' ? 1 : 0
   const status = u < 1 ? a.status : b.status
   const visible = !(status === 'airborne' && (b.status === 'airborne' || u === 0))
+  let director: string | null = null
+  let prevDirector: string | null = null
+  let directorSince = 0
+  const ctl = e.control
+  for (let k = 0; k < ctl.length; k++) {
+    const c = ctl[k]!
+    if (c.t > t) break
+    prevDirector = director
+    director = c.director
+    directorSince = t - c.t
+  }
   return {
     id: e.id,
+    director,
+    prevDirector,
+    directorSince,
     x: lerp(a.x, b.x, u),
     y: lerp(a.y, b.y, u),
     heading: lerpHeading(a.heading, b.heading, u),

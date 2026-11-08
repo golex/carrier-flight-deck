@@ -83,6 +83,7 @@ export type CrewAction =
   | 'hands-up'      // the shooter's final turn-up, both arms raised
   | 'salute'        // plane captain's salute to the pilot
   | 'pickle'        // LSO holding the pickle switch up through the groove
+  | 'pass'          // a director points the pilot at the next director (hand-off)
   | 'watch'
 
 export interface CrewKeyframe {
@@ -108,6 +109,14 @@ export interface AircraftEntity {
   /** one-line note for the selection panel, e.g. "Launches off cat 3, recovers to slot B2C" */
   note?: string
   track: AircraftKeyframe[]
+  /** who has control of the aircraft over time: the yellow shirt (or shooter) the pilot takes direction from */
+  control: ControlChange[]
+}
+
+/** A change of control at time t; `director` is a crew id, or null when nobody is directing the jet. */
+export interface ControlChange {
+  t: number
+  director: string | null
 }
 
 export interface CrewEntity {

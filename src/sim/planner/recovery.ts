@@ -260,11 +260,20 @@ function inPolygon(p: Vec2, poly: readonly Vec2[]): boolean {
 }
 
 /** Static crew whose actions are collected per pass, then written in time order. */
+interface ActItem {
+  t0: number
+  t1: number
+  action: CrewAction
+  heading?: number
+}
+
 class Acts {
-  private items: { t0: number; t1: number; action: CrewAction; heading?: number }[] = []
+  private items: ActItem[] = []
   constructor(readonly b: CrewBuilder, private readonly rest: CrewAction, private readonly restHeading?: number) {}
-  add(t0: number, t1: number, action: CrewAction, heading?: number): void {
-    this.items.push({ t0, t1, action, heading })
+  add(t0: number, t1: number, action: CrewAction, heading?: number): ActItem {
+    const it = { t0, t1, action, heading }
+    this.items.push(it)
+    return it
   }
   flush(): void {
     const b = this.b
@@ -430,6 +439,8 @@ interface BowJob {
   ab: AircraftBuilder
   /** the jet whose bow leg must finish first (same column, forward slot, traps later) */
   after?: string
+  /** the Box director's 'direct' interval for this jet, extended to the moment it leaves the Box */
+  boxItem?: ActItem
 }
 
 // ---- builder ------------------------------------------------------------------------------------------
@@ -760,6 +771,7 @@ export function buildRecovery(w: World): PatternEntity[] {
     gp.holdUntil(Math.max(gp.t, gpFreeAt, tStop))
     gp.walkTo(post, GP_SPEED)
     gp.act('direct', headingTo(post, stop))
+    ab.handTo(gp.id, gp.t)
     const iAcross = indexAt(ab.kf, tAcross)
     const followFrom = ab.kf.slice(iMove, iAcross + 1)
     const startPose = poseAt(ab.kf, tOff)
@@ -767,7 +779,11 @@ export function buildRecovery(w: World): PatternEntity[] {
     gp.holdUntil(tOff - 1.5)
     gp.walkTo(gpStart, 12)
     gp.follow(followFrom, GP_FOLLOW[0], GP_FOLLOW[1], 'direct')
+    // at the foul line: a point at the Fly 2 director, who has the jet from here
+    gp.act('pass', headingTo(gp.pos, FLY2_DIRECTOR))
+    gp.holdUntil(gp.t + 1.5)
     gp.act('idle')
+    ab.handTo(fly2.id, tAcross)
     // clear deck forward as soon as the tail is across and the wire is back, then back to his spot
     const tClearFwd = Math.max(gp.t, tTail + 0.5, tRetract + RETRACT_S - 2)
     const tGreen = tClearFwd + 2
@@ -804,9 +820,7 @@ export function buildRecovery(w: World): PatternEntity[] {
       })
     }
 
-    // -- Fly 2 director: from the foul line to the de-arm stop / the Box --------------------------------------------
-    fly2Acts.add(tAcross, R.armed ? tDearm0 + 2 : tBoxArrive - 8, 'direct', headingTo(FLY2_DIRECTOR, poseAt(ab.kf, tAcross)))
-    if (R.armed) fly2Acts.add(tDearm1 - 4, tDearm1 + 6, 'direct')
+    // (the Fly 2 director's signals are written with the Box director's below, once the Box entry time is known)
 
     // -- de-arm (§1.15, §5.3 step 21): the crew approach from the side and aft ----------------------------------------
     if (R.armed) {
@@ -837,7 +851,18 @@ export function buildRecovery(w: World): PatternEntity[] {
 
     // -- Box director -------------------------------------------------------------------------------------------
     const tBoxIn = firstTime(ab.kf, iBox, p => p.x > BOX_ENTRY.x - 10)
-    if (!sideHold && Number.isFinite(tBoxIn)) boxActs.add(tBoxIn, tBoxArrive + HANDOFF_PAUSE, 'direct')
+    const viaBox = !sideHold && Number.isFinite(tBoxIn)
+    let boxItem: ActItem | undefined
+    if (viaBox) {
+      boxItem = boxActs.add(tBoxIn, tBoxArrive + HANDOFF_PAUSE, 'direct')
+      ab.handTo(boxDir.id, tBoxIn)
+    }
+
+    // -- Fly 2 director: from the foul line to the de-arm stop / the Box; hands off to the Box director at the Box entry
+    const tFly2End = viaBox ? tBoxIn : R.armed ? tDearm1 + 6 : tBoxArrive - 8
+    fly2Acts.add(tAcross, Math.min(tFly2End, R.armed ? tDearm0 + 2 : tFly2End), 'direct', headingTo(FLY2_DIRECTOR, poseAt(ab.kf, tAcross)))
+    if (R.armed && tDearm1 - 4 < tFly2End) fly2Acts.add(tDearm1 - 4, Math.min(tDearm1 + 6, tFly2End), 'direct')
+    if (viaBox) fly2Acts.add(tFly2End, tFly2End + 2, 'pass', headingTo(FLY2_DIRECTOR, BOX_DIRECTOR))
 
     // -- events --------------------------------------------------------------------------------------------------
     const stopFocus = { x: stop.x, y: stop.y }
@@ -859,7 +884,7 @@ export function buildRecovery(w: World): PatternEntity[] {
     }
 
     // -- the bow: queue behind other jets, spin, push back, chock and chain -----------------------------------------
-    const job: BowJob = { R, ab, after: later?.modex }
+    const job: BowJob = { R, ab, after: later?.modex, boxItem }
     if (job.after) pending.set(job.after, job)
     else {
       bowFree = bowLeg(job, bowFree)
@@ -910,6 +935,8 @@ export function buildRecovery(w: World): PatternEntity[] {
     }
     const tSlot = ab.t
     const tMeet = firstTime(ab.kf, i0, p => dist(p, spin) < 60)
+    // spot director's stand: in the column gap ahead-left of the spin point, outside the pivot circle
+    const standSpot: Vec2 = { x: spin.x + 40, y: s.y - 16.5 }
 
     // Fly 1 bow director: forward of the Box, on the side away from the jet's turn, until the spot director has it
     const standBow = rel(BOX_EXIT, 40, s.y < -10 ? DIRECTOR_SIDE : -DIRECTOR_SIDE)
@@ -917,7 +944,16 @@ export function buildRecovery(w: World): PatternEntity[] {
     bd.arriveAt(standBow, Math.max(bd.t + dist(bd.pos, standBow) / WALK_SPEED, tGo - 2))
     bd.act('direct', headingTo(standBow, ab.pose))
     bd.holdUntil(tMeet + HANDOFF_PAUSE)
+    bd.act('pass', headingTo(standBow, standSpot))
+    bd.holdUntil(bd.t + 2)
     bd.act('watch')
+    // control: Box director (or the Fly 2 director for a side hold) -> bow director as the jet leaves, -> spot director at the spin point
+    if (job.boxItem) {
+      job.boxItem.t1 = Math.max(job.boxItem.t1, tGo)
+      boxActs.add(tGo, tGo + 2, 'pass', headingTo(BOX_DIRECTOR, standBow))
+    }
+    ab.handTo(bd.id, tGo)
+    ab.handTo('__spot__', tMeet + HANDOFF_PAUSE)
     if (bd === bowDir) {
       bd.holdUntil(Math.max(bd.t, firstTime(ab.kf, i0, p => dist(p, standBow) > 50)))
       bd.walkTo(BOW_DIRECTOR_HOME)
@@ -936,11 +972,12 @@ export function buildRecovery(w: World): PatternEntity[] {
       b.walkTo(to)
     }
 
-    // spot director: in the column gap ahead-left of the spin point, outside the pivot circle
-    const standSpot: Vec2 = { x: spin.x + 40, y: s.y - 16.5 }
+    // spot director
     const sd = w.pools.take('director', 1, standSpot, tGo, 8, 'Spot director, Fly 1')
     approach(sd, standSpot, tGo)
     sd.act('direct', headingTo(standSpot, spin))
+    const spotHand = ab.control.find(c => c.director === '__spot__')
+    if (spotHand) spotHand.director = sd.id
 
     // the hot tractor: from its spot at the point to the jet's nose, push, unhook, back
     const waitPose: Pose = { x: spin.x - TOW_OFFSET, y: spin.y, heading: 0 }
@@ -975,6 +1012,7 @@ export function buildRecovery(w: World): PatternEntity[] {
     sd.holdUntil(tSlot + 3)
     sd.act('idle')
     w.pools.release(sd)
+    ab.releaseControl(tSlot + 3)
 
     // blue shirts wait at the slot's forward corners, then chock and put on the initial chains (§5.3 step 23)
     for (const side of [1, -1] as const) {

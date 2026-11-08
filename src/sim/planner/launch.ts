@@ -285,7 +285,8 @@ function catCrewSequence(cc: CatCrew, pc: PairCrew, S: number, mode: 'full' | 'a
       chk.act('check', cat.heading)
     }
   }
-  // cat director passes control to the shooter and moves laterally clear
+  // cat director passes control to the shooter (a point at the shooter) and moves laterally clear
+  cc.director.holdUntil(S - 32).act('pass', headingTo(cc.director.pos, cat.shooterPos))
   cc.director.holdUntil(S - 30).walkTo(rel(A, 20, -side * 28))
   cc.director.act('watch', back)
   // shooter: final turn-up
@@ -493,20 +494,22 @@ export function buildPrelaunchAndLaunch(w: World): void {
     let prevDirector = w.pools.take('director', zone, breakStand, tBreak, DIRECTOR_CAP)
     prevDirector.arriveAt(breakStand, tBreak)
     prevDirector.act('direct', (slotPose.heading + 180) % 360)
+    ab.handTo(prevDirector.id, tBreak)
     for (const win of windows) {
-      prevDirector.holdUntil(win.t0)
-      prevDirector.act('idle')
-      w.pools.release(prevDirector)
       const stand = offset(win.to, win.to.heading, 26, -18)
+      // the hand-off: the old director points the pilot at the new one, who is already signalling
+      prevDirector.pass(stand, win.t0)
+      w.pools.release(prevDirector)
       const d = w.pools.take('director', zoneOf(stand.x), stand, win.t0 - 2, DIRECTOR_CAP)
       d.arriveAt(stand, win.t0 - 2)
       d.act('direct', (win.to.heading + 180) % 360)
+      ab.handTo(d.id, win.t0)
       prevDirector = d
     }
     // at the queue: stands ahead of the left wingtip, controls until the hand-off to the cat director
-    prevDirector.holdUntil(tApproach)
-    prevDirector.act('idle')
+    prevDirector.pass(rel({ ...cat.aircraftPos, heading: cat.heading }, 35, 0), tApproach)
     w.pools.release(prevDirector)
+    ab.handTo(cc.director.id, tApproach)
 
     // -- weight board at the queue --------------------------------------------------------------------
     cc.weightBoard.holdUntil(tQ + 1).act('check', (queuePose.heading + 180) % 360)
@@ -533,6 +536,13 @@ export function buildPrelaunchAndLaunch(w: World): void {
     } else {
       catCrewSequence(cc, pc, S, 'full')
     }
+    // control: cat director -> shooter at S-30; after a suspend the director takes the jet back until the re-run
+    ab.handTo(pc.shooter.id, S1 - 30)
+    if (L.suspend) {
+      ab.handTo(cc.director.id, S1 + 2)
+      ab.handTo(pc.shooter.id, S - 30)
+    }
+    ab.releaseControl(S)
     const Sx = S
 
     // ordnance: arm forward-firing weapons with the jet stopped in the wye and the pilot's hands up

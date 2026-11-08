@@ -1,19 +1,4 @@
-import type {
-  AircraftEntity,
-  AircraftKeyframe,
-  AircraftStatus,
-  AircraftType,
-  CrewAction,
-  CrewEntity,
-  CrewKeyframe,
-  CrewRole,
-  EquipmentKeyframe,
-  EventKind,
-  SimEvent,
-  Vec2,
-  VehicleEntity,
-  WingState,
-} from '../types'
+import type { AircraftEntity, AircraftKeyframe, AircraftStatus, AircraftType, ControlChange, CrewAction, CrewEntity, CrewKeyframe, CrewRole, EquipmentKeyframe, EventKind, SimEvent, Vec2, VehicleEntity, WingState } from '../types'
 import type { Pose } from '../../data/deckTypes'
 import { dist, headingTo, offset, pathToKeyframes, taxiPath } from '../track'
 
@@ -42,6 +27,8 @@ export class AircraftBuilder {
   hook = false
   launchBar = false
   power: 0 | 1 | 2 = 0
+  /** control hand-offs (any order; sorted and de-duplicated in build()) */
+  readonly control: ControlChange[] = []
 
   constructor(
     public readonly id: string,
@@ -183,8 +170,27 @@ export class AircraftBuilder {
     return this.key(this.t)
   }
 
+  /** From time t the pilot takes direction from this crew member (a director or the shooter). */
+  handTo(crewId: string, t: number): this {
+    this.control.push({ t, director: crewId })
+    return this
+  }
+
+  /** From time t nobody is directing the jet (shot, parked and chained, or on the hangar deck). */
+  releaseControl(t: number): this {
+    this.control.push({ t, director: null })
+    return this
+  }
+
   build(): AircraftEntity {
-    return { id: this.id, type: this.type, modex: this.modex, squadron: this.squadron, event: this.event, track: this.kf }
+    const control: ControlChange[] = []
+    for (const c of [...this.control].sort((p, q) => p.t - q.t)) {
+      const last = control[control.length - 1]
+      if (last && last.director === c.director) continue
+      if (last && Math.abs(last.t - c.t) < 1e-6) control[control.length - 1] = c
+      else control.push(c)
+    }
+    return { id: this.id, type: this.type, modex: this.modex, squadron: this.squadron, event: this.event, track: this.kf, control }
   }
 }
 
@@ -239,6 +245,17 @@ export class CrewBuilder {
 
   wait(seconds: number): this {
     return this.key(this.t + seconds)
+  }
+
+  /**
+   * Hand-off: at time t point at `to` (the next director) for `dur` seconds, then `then`.
+   * The pointing arm is the quick flick a director gives the pilot to say "that yellow shirt has you now".
+   */
+  pass(to: Vec2, t: number, dur = 2, then: CrewAction = 'idle'): this {
+    this.holdUntil(Math.max(t, this.t))
+    this.act('pass', headingTo(this.pos, to))
+    this.holdUntil(this.t + dur)
+    return this.act(then)
   }
 
   /** Change action (and optionally facing) at the cursor as a step. */

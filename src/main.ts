@@ -5,6 +5,8 @@ import { DECK, VIEWS } from './data/deck'
 import { drawDeck, drawDeckLabels } from './render/deck'
 import { drawAircraft, hitAircraft } from './render/aircraft'
 import { drawCrew, drawVehicle } from './render/crew'
+import { drawControl } from './render/control'
+import type { CrewState } from './sim/sample'
 import { sampleAircraft, sampleCrew, sampleEquipment, sampleVehicle } from './sim/sample'
 import { tokens } from './render/tokens'
 import type { CrewRole, PatternKeyframe, Timeline } from './sim/types'
@@ -135,6 +137,9 @@ const panel = mountUI({ timeline, clock, ui, goView, views: VIEWS, cam, tween })
     clock.playing = false
   }
   if (q.get('play')) clock.playing = true
+  // dev hooks: sel=<modex> selects a jet, hl=yellow highlights the yellow shirts
+  if (q.get('sel')) ui.selectedAircraft = timeline.aircraft.find(a => a.modex === q.get('sel'))?.id ?? null
+  if (q.get('hl') === 'yellow') ui.highlightRoles = new Set<CrewRole>(['director', 'shooter', 'handler', 'air-boss'])
   panel.refresh()
 }
 
@@ -179,9 +184,20 @@ function frame(now: number): void {
 
   // crew
   const hl: Set<CrewRole> | null = ui.highlightRoles
+  const crewStates = new Map<string, CrewState>()
   for (const c of timeline.crew) {
     const s = sampleCrew(c, t)
-    if (s) drawCrew(ctx, cam, c, s, hl, now / 1000)
+    if (!s) continue
+    crewStates.set(c.id, s)
+    drawCrew(ctx, cam, c, s, hl, now / 1000)
+  }
+  // who has each jet: the pilot's line of sight to the director, strong for the selected jet,
+  // for every directed jet while the yellow shirts are highlighted
+  const allControl = hl !== null && hl.has('director')
+  for (const { a, s } of states) {
+    if (!s || !s.visible || !s.director) continue
+    const strong = ui.selectedAircraft === a.id
+    if (strong || allControl) drawControl(ctx, cam, a, s, crewStates, strong)
   }
   // deck labels over the jets and crew so parked aircraft never hide them
   if (ui.showLabels) drawDeckLabels(ctx, cam, DECK)

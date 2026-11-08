@@ -682,6 +682,9 @@ export function buildRespotWith(w: World, towTable: readonly { from: string; to:
     dir.holdUntil(T.tArrive + 8)
     dir.act('idle')
     w.pools.release(dir)
+    // the brake rider in the cockpit takes direction from the tow director for the whole move
+    T.ab.handTo(dir.id, T.tMove - 10)
+    T.ab.releaseControl(T.tArrive + 8)
 
     // plane captain: checks the nose, climbs in to ride the brakes, climbs down at the spot
     const pcAt = rel(st, 24, -11)

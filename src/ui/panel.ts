@@ -3,7 +3,7 @@ import { fmtTime } from '../sim/clock'
 import type { CrewRole, Timeline } from '../sim/types'
 import type { Camera, CameraTween } from '../render/camera'
 import { ROLES, ROLE_ORDER, JERSEY_LABEL, type JerseyColour } from '../data/crewRoles'
-import { eventsUpTo, phaseAt, sampleCrew } from '../sim/sample'
+import { eventsUpTo, phaseAt, sampleAircraft, sampleCrew } from '../sim/sample'
 import { Narrator } from './audio'
 import { SIGNALS } from '../render/crew'
 
@@ -68,13 +68,16 @@ export function mountUI(d: UIDeps) {
   const selSec = el('section', 'sec sel')
   const selTitle = el('h2', 'sec-h', 'Selected aircraft')
   const selBody = el('p', 'sel-body', 'Click a jet on the deck to follow it.')
+  const selDir = el('p', 'sel-dir', '')
+  const crewLabel = new Map(timeline.crew.map(c => [c.id, c.label ?? ROLES[c.role].name]))
+  let lastDirT = -1
   const followBtn = el('button', 'btn', 'Follow')
   followBtn.type = 'button'
   followBtn.addEventListener('click', () => {
     ui.follow = !ui.follow
     refresh()
   })
-  selSec.append(selTitle, selBody, followBtn)
+  selSec.append(selTitle, selBody, selDir, followBtn)
 
   const crewSec = el('section', 'sec')
   const crewTitle = el('h2', 'sec-h', 'Crew by jersey')
@@ -322,6 +325,14 @@ export function mountUI(d: UIDeps) {
 
   function tick(t: number, force = false): void {
     timeEl.textContent = fmtTime(t)
+    if (Math.abs(t - lastDirT) > 0.5 || force) {
+      lastDirT = t
+      const a = ui.selectedAircraft ? timeline.aircraft.find(x => x.id === ui.selectedAircraft) : null
+      const s = a ? sampleAircraft(a, t) : null
+      const who = s?.director ? crewLabel.get(s.director) : null
+      selDir.textContent = who ? `Taking direction from: ${who}` : a ? 'Not under a director' : ''
+      selDir.hidden = !a
+    }
     head.style.transform = `translateX(${(t / timeline.duration) * scrub.clientWidth}px)`
     scrub.setAttribute('aria-valuenow', String(Math.round(t)))
     scrub.setAttribute('aria-valuetext', fmtTime(t))

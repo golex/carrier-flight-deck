@@ -96,6 +96,12 @@ export interface AircraftEntity {
   squadron: string
   /** which flight event this jet belongs to (launching vs recovering) */
   event: number
+  /** recovery tanker (first shot, lands last) */
+  tanker?: boolean
+  /** carries forward-firing ordnance: armed before the shot, de-armed after the trap */
+  armed?: boolean
+  /** one-line note for the selection panel, e.g. "Launches off cat 3, recovers to slot B2C" */
+  note?: string
   track: AircraftKeyframe[]
 }
 

@@ -39,11 +39,19 @@ function resize(): void {
 window.addEventListener('resize', resize)
 resize()
 
+/** Screen areas covered by UI chrome, so views are framed in the free part of the canvas. */
+function chromeInset() {
+  const narrow = window.innerWidth <= 760
+  const app = document.getElementById('app')
+  const panelOpen = !narrow && !(app?.classList.contains('panel-hidden') ?? false)
+  return { left: 0, right: panelOpen ? 352 : 0, top: narrow ? 90 : 64, bottom: narrow ? 76 + 0.42 * window.innerHeight : 76 }
+}
+
 function goView(id: string, instant = false): void {
   const v = VIEWS.find(x => x.id === id) ?? VIEWS[0]!
   const target = new Camera()
   target.resize(cam.w, cam.h)
-  target.fit(v.minX, v.minY, v.maxX, v.maxY, 48)
+  target.fit(v.minX, v.minY, v.maxX, v.maxY, 24, chromeInset())
   if (instant) cam.state = target.state
   else tween.to(target.state, 0.7)
   ui.follow = false

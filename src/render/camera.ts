@@ -45,13 +45,25 @@ export class Camera {
     this.cy -= dyPx / this.zoom
   }
 
-  /** Frame a world rectangle with padding (px). */
-  fit(minX: number, minY: number, maxX: number, maxY: number, pad = 40): void {
-    const zw = (this.w - pad * 2) / Math.max(1, maxX - minX)
-    const zh = (this.h - pad * 2) / Math.max(1, maxY - minY)
+  /**
+   * Frame a world rectangle with padding (px) inside the part of the viewport not covered
+   * by UI chrome (`inset`, px from each edge).
+   */
+  fit(minX: number, minY: number, maxX: number, maxY: number, pad = 40, inset: Inset = {}): void {
+    const l = inset.left ?? 0
+    const r = inset.right ?? 0
+    const t = inset.top ?? 0
+    const b = inset.bottom ?? 0
+    const innerW = Math.max(50, this.w - l - r - pad * 2)
+    const innerH = Math.max(50, this.h - t - b - pad * 2)
+    const zw = innerW / Math.max(1, maxX - minX)
+    const zh = innerH / Math.max(1, maxY - minY)
     this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, Math.min(zw, zh)))
-    this.cx = (minX + maxX) / 2
-    this.cy = (minY + maxY) / 2
+    // the inner viewport's centre, in screen px, relative to the full viewport centre
+    const dxPx = l + (this.w - l - r) / 2 - this.w / 2
+    const dyPx = t + (this.h - t - b) / 2 - this.h / 2
+    this.cx = (minX + maxX) / 2 - dxPx / this.zoom
+    this.cy = (minY + maxY) / 2 - dyPx / this.zoom
   }
 
   /** Current view for tween targets. */
@@ -71,6 +83,13 @@ export class Camera {
     const b = this.screenToWorld({ x: this.w, y: this.h })
     return { minX: a.x, minY: a.y, maxX: b.x, maxY: b.y }
   }
+}
+
+export interface Inset {
+  left?: number
+  right?: number
+  top?: number
+  bottom?: number
 }
 
 export interface CameraState {

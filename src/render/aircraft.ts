@@ -3,6 +3,7 @@ import type { AircraftEntity } from '../sim/types'
 import type { AircraftState } from '../sim/sample'
 import { SILHOUETTES, type SilhouetteSpec } from '../data/silhouettes'
 import { tokens } from './tokens'
+import { drawSignal } from './crew'
 
 interface CompiledSilhouette {
   spec: SilhouetteSpec
@@ -154,6 +155,16 @@ export function drawAircraft(
     ctx.setLineDash([])
   }
   ctx.restore()
+
+  // the pilot's salute to the shooter, at the cockpit, in the last seconds before the shot
+  if (s.status === 'salute' && z > 1.2 && !opts.dim) {
+    const h = (s.heading * Math.PI) / 180
+    const fwd = spec.length / 2 - 14 // cockpit, about 14 ft aft of the nose
+    const cx = sc.x + Math.cos(h) * fwd * z
+    const cy = sc.y + Math.sin(h) * fwd * z
+    // the salute keyframe spans 8 s (S-8 to S), so u is progress through it
+    drawSignal(ctx, '🫡', cx, cy, 2 * z, z, s.u * 8)
+  }
 
   // modex label (upright, not rotated)
   if (opts.showModex && z > 1.6) {

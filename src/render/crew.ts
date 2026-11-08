@@ -1,8 +1,76 @@
 import type { Camera } from './camera'
-import type { CrewEntity, CrewRole } from '../sim/types'
+import type { CrewAction, CrewEntity, CrewRole } from '../sim/types'
 import type { CrewState, VehicleState } from '../sim/sample'
 import { ROLES } from '../data/crewRoles'
 import { tokens } from './tokens'
+
+/** Hand signals shown as a small glyph at the top-left of a person while the signal is given. */
+export const SIGNALS: { glyph: string; label: string }[] = [
+  { glyph: '👋', label: 'Director signalling a pilot' },
+  { glyph: '☝️', label: 'Arm overhead: engine start, JBD, wire clear' },
+  { glyph: '👍', label: 'Ready: hook-up crew and final checkers' },
+  { glyph: '🙌', label: 'Shooter: final turn-up to full power' },
+  { glyph: '🫡', label: 'Salute: plane captain, then the pilot' },
+  { glyph: '👉', label: 'Shooter: launch' },
+  { glyph: '👇', label: 'Deck edge: fire' },
+  { glyph: '🙅', label: 'Checker: suspend, arms crossed' },
+  { glyph: '✋', label: 'Shooter: hold' },
+  { glyph: '🙋', label: 'LSO with the pickle up' },
+  { glyph: '🔴', label: 'LSO: wave-off lights' },
+]
+
+/** The glyph a person shows for an action, if it is a hand signal. */
+export function signalGlyph(role: CrewRole, action: CrewAction): string | null {
+  const yellow = role === 'director' || role === 'shooter' || role === 'handler'
+  switch (action) {
+    case 'direct':
+      return yellow ? '👋' : '☝️'
+    case 'thumbs-up':
+      return '👍'
+    case 'hands-up':
+      return '🙌'
+    case 'salute':
+      return '🫡'
+    case 'pickle':
+      return '🙋'
+    case 'signal-launch':
+      return role === 'shooter' ? '👉' : '👇'
+    case 'wave-off':
+      return role === 'lso' ? '🔴' : role === 'checker' ? '🙅' : '✋'
+    default:
+      return null
+  }
+}
+
+/** Font size in px for a signal glyph at this zoom; null below the zoom where people are legible. */
+export function signalSize(z: number): number | null {
+  if (z <= 1.2) return null
+  return Math.max(12, Math.min(24, 4.2 * z))
+}
+
+/**
+ * Draw one signal glyph with its top-left-of-the-dot placement and a short pop-in.
+ * `since` is simulation seconds since the signal began.
+ */
+export function drawSignal(ctx: CanvasRenderingContext2D, glyph: string, x: number, y: number, r: number, z: number, since: number): void {
+  const fs = signalSize(z)
+  if (fs === null) return
+  const T = tokens()
+  // pop-in over the first 1.2 s of simulation time, with a little overshoot
+  const p = Math.min(1, since / 1.2)
+  const scale = p < 1 ? 0.6 + 0.55 * Math.sin((p * Math.PI) / 2) - 0.15 * Math.sin(p * Math.PI) ** 2 : 1
+  const cx = x - r - fs * 0.5
+  const cy = y - r - fs * 0.5
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.scale(scale, scale)
+  ctx.font = `${fs}px ${T.fontEmoji}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.globalAlpha = Math.min(1, 0.4 + p)
+  ctx.fillText(glyph, 0, 0)
+  ctx.restore()
+}
 
 /** Crew are drawn as small discs in jersey colour with a dark outline; 2 ft diameter in world units, with a px floor. */
 export function drawCrew(
@@ -83,8 +151,9 @@ export function drawCrew(
     }
   }
 
-  // action cue: signalling yellow shirt gets a small pulse ring
-  if ((s.action === 'direct' || s.action === 'signal-launch' || s.action === 'wave-off') && z > 1.2 && !dimmed) {
+  // action cue: a signalling person gets a small pulse ring and the hand-signal glyph
+  const glyph = dimmed ? null : signalGlyph(e.role, s.action)
+  if (glyph && z > 1.2) {
     const ph = (timeSec * 1.5) % 1
     ctx.beginPath()
     ctx.arc(sc.x + ox, sc.y + oy, r * (1.4 + ph * 1.6), 0, Math.PI * 2)
@@ -92,6 +161,8 @@ export function drawCrew(
     ctx.globalAlpha = (1 - ph) * 0.8
     ctx.lineWidth = Math.max(0.6, 0.3 * z)
     ctx.stroke()
+    ctx.globalAlpha = 1
+    drawSignal(ctx, glyph, sc.x + ox, sc.y + oy, r, z, s.since)
   }
 
   ctx.restore()

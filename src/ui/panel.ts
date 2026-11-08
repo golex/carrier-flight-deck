@@ -5,6 +5,7 @@ import type { Camera, CameraTween } from '../render/camera'
 import { ROLES, ROLE_ORDER, JERSEY_LABEL, type JerseyColour } from '../data/crewRoles'
 import { eventsUpTo, phaseAt, sampleCrew } from '../sim/sample'
 import { Narrator } from './audio'
+import { SIGNALS } from '../render/crew'
 
 export interface UIState {
   selectedAircraft: string | null
@@ -103,7 +104,14 @@ export function mountUI(d: UIDeps) {
     counts.set(j, cnt)
     buttons.set(j, btn)
   }
-  crewSec.append(crewTitle, crewNote, legend)
+  const sigNote = el('p', 'sec-note', 'Hand signals appear beside a person while they are given (zoom in to see them).')
+  const sigList = el('ul', 'signals')
+  for (const s of SIGNALS) {
+    const li = el('li', 'signal')
+    li.append(el('span', 'signal-glyph', s.glyph), el('span', 'signal-label', s.label))
+    sigList.append(li)
+  }
+  crewSec.append(crewTitle, crewNote, legend, sigNote, sigList)
 
   const viewSec = el('section', 'sec')
   const viewTitle = el('h2', 'sec-h', 'View')
@@ -345,6 +353,7 @@ export function mountUI(d: UIDeps) {
             return li
           }),
       )
+      if (wasSeek) narrator.stop()
       if (newest.narration && clock.playing && !force && !wasSeek) narrator.play(newest.narration)
     }
 

@@ -614,7 +614,9 @@ export function buildRecovery(w: World): PatternEntity[] {
     // -- the groove: appear 6 s out ----------------------------------------------------------------------
     ab.jumpTo(laPose(GROOVE_S0))
     ab.holdUntil(T - GROOVE_VISIBLE_S)
-    lsoCtl.add(T - P_GROOVE, T, 'direct')
+    // the controlling LSO holds the pickle up through the groove; on a wave-off it is squeezed at the half-mile point
+    if (P.kind === 'waveoff') lsoCtl.add(T - P_GROOVE, T - 15, 'pickle')
+    else lsoCtl.add(T - P_GROOVE, T, 'pickle')
 
     if (P.kind === 'waveoff') {
       // foul deck at the 1/2 nm point: the previous jet's tail is still across the foul line (§6.1, §7)

@@ -21,13 +21,13 @@ export const clamp01 = (u: number) => (u < 0 ? 0 : u > 1 ? 1 : u)
 export function segmentAt<K extends { t: number }>(
   track: readonly K[],
   t: number,
-): { a: K; b: K; u: number } | null {
+): { a: K; b: K; u: number; i: number } | null {
   const n = track.length
   if (n === 0) return null
   const first = track[0]!
-  if (t <= first.t || n === 1) return { a: first, b: first, u: 0 }
+  if (t <= first.t || n === 1) return { a: first, b: first, u: 0, i: 0 }
   const last = track[n - 1]!
-  if (t >= last.t) return { a: last, b: last, u: 0 }
+  if (t >= last.t) return { a: last, b: last, u: 0, i: n - 1 }
   let lo = 0
   let hi = n - 1
   while (hi - lo > 1) {
@@ -39,7 +39,7 @@ export function segmentAt<K extends { t: number }>(
   const b = track[hi]!
   const span = b.t - a.t
   const u = span > 0 ? (t - a.t) / span : 0
-  return { a, b, u }
+  return { a, b, u, i: lo }
 }
 
 /** 0 = +x (bow), clockwise positive toward +y (starboard). */

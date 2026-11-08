@@ -27,6 +27,7 @@ export interface Tokens {
   jersey: Record<string, string>
   fontSans: string
   fontMono: string
+  fontEmoji: string
 }
 
 let cache: Tokens | null = null
@@ -71,6 +72,7 @@ export function tokens(): Tokens {
     },
     fontSans: v('--font-sans'),
     fontMono: v('--font-mono'),
+    fontEmoji: v('--font-emoji'),
   }
   return cache
 }

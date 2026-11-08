@@ -88,10 +88,16 @@ export interface RecoveryJet {
   tanker?: boolean
 }
 
-/** Last waist shot at 770; waist secured and deck green by about 860. First trap at 890. */
-export const T_GREEN_DECK = 860
-export const T_FIRST_TRAP = 890
+/**
+ * Last waist shot at 770; waist secured and deck green by about 835. First trap at 900.
+ * The gaps are sized so the narration clips fit at the default 4x playback: a clip of d seconds
+ * needs 4d simulation seconds before the next narrated event (see tools/narration.json).
+ */
+export const T_GREEN_DECK = 835
+export const T_FIRST_TRAP = 900
 const TRAP_INTERVAL = 50
+/** touchdown of the last jet (the recovery tanker) */
+export const T_LAST_TRAP = T_FIRST_TRAP + 13 * TRAP_INTERVAL
 
 /** Event N-1: 11 jets plus the previous recovery tanker, which lands last. */
 export const RECOVERY: RecoveryJet[] = [
@@ -111,9 +117,11 @@ export const RECOVERY: RecoveryJet[] = [
   { type: 'FA18E', modex: '201', squadron: 'VFA-11', slot: 'B5S', touchdown: T_FIRST_TRAP + 13 * TRAP_INTERVAL, wire: 3, outcome: 'trap', tanker: true },
 ]
 
-/** Last trap at 1540; "recovery complete" and the last jet chained by about 1720. */
-export const T_RECOVERY_COMPLETE = 1545
+/** Last trap at 1550; the Boss calls "recovery complete" once it is clear of the landing area. The last jet is chained by about 1720. */
+export const T_RECOVERY_COMPLETE = T_LAST_TRAP + 45
 export const T_RESPOT_START = 1600
+/** the respot narration waits for the recovery-complete clip to finish at 4x */
+export const T_RESPOT_NARRATION = T_RECOVERY_COMPLETE + 70
 /** End of the scenario: the deck is respotted for Event N+1 and the cycle would repeat. */
 export const T_END = 2400
 

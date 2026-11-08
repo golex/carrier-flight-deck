@@ -23,6 +23,8 @@ export interface AircraftState extends Omit<AircraftKeyframe, 't'> {
 export interface CrewState extends Omit<CrewKeyframe, 't'> {
   id: string
   u: number
+  /** simulation seconds since the current action began (for the signal pop-in) */
+  since: number
 }
 
 export interface VehicleState {
@@ -64,7 +66,9 @@ export function sampleAircraft(e: AircraftEntity, t: number): AircraftState | nu
 export function sampleCrew(e: CrewEntity, t: number): CrewState | null {
   const seg = segmentAt(e.track, t)
   if (!seg) return null
-  const { a, b, u } = seg
+  const { a, b, u, i } = seg
+  let j = i
+  while (j > 0 && e.track[j - 1]!.action === a.action) j--
   return {
     id: e.id,
     x: lerp(a.x, b.x, u),
@@ -72,6 +76,7 @@ export function sampleCrew(e: CrewEntity, t: number): CrewState | null {
     heading: lerpHeading(a.heading, b.heading, u),
     action: a.action,
     u,
+    since: Math.max(0, t - e.track[j]!.t),
   }
 }
 

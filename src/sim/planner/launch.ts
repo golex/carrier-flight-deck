@@ -238,6 +238,7 @@ function approachCat(ab: AircraftBuilder, cat: Catapult, S: number, tStart: numb
 function fireCat(ab: AircraftBuilder, cat: Catapult, S: number, heavy: boolean): void {
   ab.holdUntil(S - 18).change({ power: 1 })
   if (heavy) ab.holdUntil(S - 16).change({ power: 2 })
+  ab.holdUntil(S - 8).change({ status: 'salute' })
   ab.holdUntil(S).change({ status: 'shot' })
   const strokeEnd = rel({ ...cat.aircraftPos, heading: cat.heading }, 310, 0)
   ab.moveStraight(strokeEnd, 2.0, cat.heading, 'in')
@@ -261,6 +262,7 @@ function catCrewSequence(cc: CatCrew, pc: PairCrew, S: number, mode: 'full' | 'a
     // TSPO and holdback at the nose gear during hook-up, then clear and crouched
     cc.tspo.holdUntil(S - 56).walkTo(rel(A, 2, 0))
     cc.tspo.act('hookup', back)
+    cc.tspo.holdUntil(S - 31).act('thumbs-up', back) // launch bar in the shuttle, holdback set
     cc.tspo.holdUntil(S - 26).walkTo(rel(A, 5, side * 27))
     cc.tspo.act('watch', back)
     cc.holdback.holdUntil(S - 56).walkTo(rel(A, -3, 2))
@@ -289,6 +291,7 @@ function catCrewSequence(cc: CatCrew, pc: PairCrew, S: number, mode: 'full' | 'a
   // shooter: final turn-up
   pc.shooter.holdUntil(S - 30).walkTo(cat.shooterPos)
   pc.shooter.act('direct', back)
+  pc.shooter.holdUntil(S - 19).act('hands-up') // both arms up: the final turn-up to military power
 
   if (mode === 'abort') {
     // the checker on the burner side throws crossed arms; everyone stands down
@@ -307,10 +310,9 @@ function catCrewSequence(cc: CatCrew, pc: PairCrew, S: number, mode: 'full' | 'a
   }
 
   for (const chk of cc.checkers) {
-    chk.holdUntil(S - 8).act('direct')
+    chk.holdUntil(S - 8).act('thumbs-up')
     chk.holdUntil(S + 3).act('watch')
   }
-  pc.shooter.holdUntil(S - 19).act('direct')
   pc.shooter.holdUntil(S - 2).act('signal-launch')
   pc.shooter.holdUntil(S + 2).act('watch')
   cc.deckEdge.holdUntil(S - 5).act('direct')
@@ -465,7 +467,7 @@ export function buildPrelaunchAndLaunch(w: World): void {
     planeCaptain.act('check')
     planeCaptain.holdUntil(tStartEngines).act('direct')
     planeCaptain.holdUntil(tStartEngines + 25).act('check')
-    planeCaptain.holdUntil(tBreak - 4).act('direct') // salute and hand-off to the director
+    planeCaptain.holdUntil(tBreak - 4).act('salute') // salute and hand-off to the director
     planeCaptain.holdUntil(tBreak + 2).act('idle')
     planeCaptain.holdUntil(tLeave + 6)
     w.pools.release(planeCaptain)
@@ -552,9 +554,9 @@ export function buildPrelaunchAndLaunch(w: World): void {
       if (idx < 6) log.add(tArm0, 'crew', `Ordnance arms ${L.modex} on cat ${L.cat}`, { focus: cat.aircraftPos, detail: 'Red shirts arm forward-firing weapons only with the jet stopped on the catapult and the pilot\'s hands in view.' })
     }
   }
-  // last shot clears the angle for the recovery
+  // last shot clears the angle for the recovery (narrated from tension so the clip ends before the deck goes green at 4x)
   const last = LAUNCHERS.reduce((a, b) => (a.shotOffset > b.shotOffset ? a : b))
-  log.add(T_FIRST_SHOT + last.shotOffset + 3, 'phase', 'Last shot. The waist cats are secured and the landing area cleared.', {
+  log.add(T_FIRST_SHOT + last.shotOffset - 28, 'phase', `Last shot of the event: tension on cat ${last.cat}. Once it goes, the waist is secured and the landing area cleared.`, {
     narration: 'waist-clear',
     detail: 'Shuttles aft, JBDs flush, slot seals out, the bubble lowered and locked. The waist cat officer signals the arresting gear officer with an arm overhead.',
   })

@@ -2,7 +2,7 @@ import type { Pose } from '../../data/deckTypes'
 import type { CrewAction, CrewRole, Vec2 } from '../types'
 import { DECK, foulLineY, laPoint, slot as slotOf } from '../../data/deck'
 import { dist, headingTo } from '../track'
-import { LAUNCHERS, PARKED, T_END, T_FIRST_SHOT, T_GREEN_DECK, T_RESPOT_START } from './scenario'
+import { LAUNCHERS, PARKED, T_END, T_FIRST_SHOT, T_GREEN_DECK, T_LAST_TRAP, T_RESPOT_START } from './scenario'
 import { AircraftBuilder, CrewBuilder, VehicleBuilder, rel } from './toolkit'
 import { MUSTER, zoneOf, type World } from './world'
 import { STRIKE_BELOW } from './respot'
@@ -178,7 +178,7 @@ export function buildAmbient(w: World): void {
     focus: tillyPos,
     detail: 'The A/S32A-35A crash crane is started before every recovery and kept running until the last jet is chained.',
   })
-  log.add(1560, 'info', 'Pri-Fly: the ship may leave the base recovery course; Event N tanker stays overhead.', { focus: DECK.island.priFly })
+  log.add(T_LAST_TRAP + 20, 'info', 'Pri-Fly: the ship may leave the base recovery course; Event N tanker stays overhead.', { focus: DECK.island.priFly })
 
   // ---- crash & salvage (§3 red; §1.10) --------------------------------------------------------------
   const crash: CrewBuilder[] = []

@@ -2,7 +2,7 @@ import type { AircraftKeyframe, AircraftStatus, CrewAction, Vec2 } from '../type
 import type { Pose } from '../../data/deckTypes'
 import { DECK, slot as slotOf } from '../../data/deck'
 import { dist, headingTo, lerp, lerpHeading, offset, pathToKeyframes, segmentAt, taxiPath, type PathPoint } from '../track'
-import { RECOVERY, T_END, T_RESPOT_START } from './scenario'
+import { RECOVERY, T_END, T_RESPOT_NARRATION, T_RESPOT_START } from './scenario'
 import { AircraftBuilder, CrewBuilder, RUN_SPEED, TOW_SPEED, VehicleBuilder, WALK_SPEED, rel } from './toolkit'
 import { zoneOf, type World } from './world'
 
@@ -502,7 +502,6 @@ export function buildRespotWith(w: World, towTable: readonly { from: string; to:
   const { log } = w
 
   log.add(T_RESPOT_START, 'phase', "Respot: the Handler's plan goes onto the Ouija board.", {
-    narration: 'respot',
     detail: 'The recovered jets are packed nose-aft on the bow. They are towed off the outermost row first, into the launch spot for Event N+1: stern, finger and El 4, the deck edge, the six-pack spun to face the waist.',
   })
 
@@ -638,8 +637,9 @@ export function buildRespotWith(w: World, towTable: readonly { from: string; to:
 
   // ---- events ------------------------------------------------------------------------------------------
   const first = tows[0]!
-  log.add(Math.max(T_RESPOT_START + 30, first.tHook - 40), 'crew', 'The Tractor King sends six tractors forward from the junkyard.', {
+  log.add(Math.min(T_RESPOT_NARRATION, Math.max(T_RESPOT_START + 30, first.tHook - 40)), 'crew', 'The Tractor King sends six tractors forward from the junkyard.', {
     focus: DECK.stations.tractorPool,
+    narration: 'respot',
     detail: 'Each move has a director, a driver, a plane captain riding the brakes, wing walkers and a safety observer: six to ten people per tow, so six tows at once.',
   })
   tows.slice(0, 3).forEach(T => {

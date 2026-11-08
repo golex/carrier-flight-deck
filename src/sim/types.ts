@@ -23,6 +23,7 @@ export type AircraftStatus =
   | 'towed'         // being towed by a tractor
   | 'on-cat'        // launch bar in the shuttle, holdback engaged
   | 'tension'       // catapult tension taken, full power
+  | 'salute'        // at power, controls wiped out, the pilot salutes the shooter
   | 'shot'          // the 2-second catapult stroke
   | 'airborne'      // off the deck (not drawn on deck; shown in pattern inset)
   | 'groove'        // final approach, visible crossing the ramp
@@ -76,8 +77,12 @@ export type CrewAction =
   | 'chain'         // tie-down chains
   | 'fuel'
   | 'arm'
-  | 'signal-launch' // the shooter kneel-and-point
-  | 'wave-off'
+  | 'signal-launch' // the shooter's go: kneel and point down the catapult (deck-edge: press fire)
+  | 'wave-off'      // suspend (crossed arms / open hand) or the LSO's red lights
+  | 'thumbs-up'     // ready: hook-up PO, final checkers
+  | 'hands-up'      // the shooter's final turn-up, both arms raised
+  | 'salute'        // plane captain's salute to the pilot
+  | 'pickle'        // LSO holding the pickle switch up through the groove
   | 'watch'
 
 export interface CrewKeyframe {

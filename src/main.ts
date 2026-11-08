@@ -2,14 +2,15 @@ import { Camera, CameraTween } from './render/camera'
 import { attachInput } from './ui/input'
 import { Clock } from './sim/clock'
 import { DECK, VIEWS } from './data/deck'
-import { drawDeck } from './render/deck'
+import { drawDeck, drawDeckLabels } from './render/deck'
 import { drawAircraft, hitAircraft } from './render/aircraft'
 import { drawCrew, drawVehicle } from './render/crew'
 import { sampleAircraft, sampleCrew, sampleEquipment, sampleVehicle } from './sim/sample'
 import { tokens } from './render/tokens'
-import type { CrewRole, Timeline } from './sim/types'
+import type { CrewRole, PatternKeyframe, Timeline } from './sim/types'
 import { buildTimeline } from './sim/planner/index'
 import { mountUI, type UIState } from './ui/panel'
+import { drawPatternInset } from './render/pattern'
 
 const canvas = document.getElementById('deck') as HTMLCanvasElement
 const ctx = canvas.getContext('2d', { alpha: false })!
@@ -18,6 +19,41 @@ const tween = new CameraTween(cam)
 
 const timeline: Timeline = buildTimeline()
 const clock = new Clock(timeline.duration)
+
+/**
+ * Dev-only hook for the overhead-pattern inset: `?fakepattern=1` pushes two synthetic pattern tracks
+ * (one jet flying the Case I pattern to the ramp around t = 960-1063 s, one bolter climbing out) and
+ * `?fakepattern=stack` adds six jets holding in marshal. Harmless when absent; never used by the planner.
+ */
+{
+  const mode = new URLSearchParams(location.search).get('fakepattern')
+  const ids = timeline.aircraft.map(a => a.id)
+  type W = [number, number, number, number, PatternKeyframe['leg']]
+  const track = (ws: W[]): PatternKeyframe[] => ws.map(([t, x, y, alt, leg]) => ({ t, x, y, alt, leg }))
+  if (mode === '1' && ids.length >= 2) {
+    timeline.pattern.push({
+      aircraftId: ids[0]!,
+      track: track([
+        [940, -3.2, 0.15, 800, 'initial'], [990, 0, 0.08, 800, 'break'], [1000, 1.2, -0.56, 800, 'break'],
+        [1008, 0.6, -1.2, 600, 'downwind'], [1025, -0.1, -1.2, 600, 'abeam'], [1037, -1.15, -0.55, 450, 'ninety'],
+        [1047, -0.83, 0.12, 360, 'groove'], [1063, -0.09, 0, 60, 'none'],
+      ]),
+    })
+    timeline.pattern.push({
+      aircraftId: ids[1]!,
+      track: track([[985, -0.05, 0, 60, 'bolter'], [1020, 1.6, -0.2, 1200, 'bolter'], [1021, 1.6, -0.2, 1200, 'none']]),
+    })
+  }
+  if (mode === 'stack') {
+    ids.slice(0, 6).forEach((id, i) => {
+      const a = (i / 6) * Math.PI * 2
+      timeline.pattern.push({
+        aircraftId: id,
+        track: track([[0, 0.5 + Math.cos(a), -2.6 + Math.sin(a), 2000 + 1000 * (i % 3), 'marshal'], [2400, 0.5, -2.6, 2000, 'marshal']]),
+      })
+    })
+  }
+}
 
 const ui: UIState = {
   selectedAircraft: null,
@@ -118,7 +154,7 @@ function frame(now: number): void {
   ctx.fillRect(0, 0, cam.w, cam.h)
 
   const eq = sampleEquipment(timeline.equipment, t)
-  drawDeck(ctx, cam, DECK, eq, ui.showLabels)
+  drawDeck(ctx, cam, DECK, eq)
 
   // vehicles under aircraft
   for (const v of timeline.vehicles) {
@@ -147,6 +183,13 @@ function frame(now: number): void {
     const s = sampleCrew(c, t)
     if (s) drawCrew(ctx, cam, c, s, hl, now / 1000)
   }
+  // deck labels over the jets and crew so parked aircraft never hide them
+  if (ui.showLabels) drawDeckLabels(ctx, cam, DECK)
+
+  drawPatternInset(ctx, cam, timeline, t, {
+    visible: ui.showLabels,
+    panelOpen: !document.getElementById('app')?.classList.contains('panel-hidden'),
+  })
 
   if (ui.follow && followTarget && !tween.active) {
     cam.cx += (followTarget.x - cam.cx) * Math.min(1, dt * 4)

@@ -188,6 +188,18 @@ export class AircraftBuilder {
   }
 }
 
+/** The cut-back starboard bow deck edge (deck.ts outline (770,120) -> (850,65)) and a walking point inboard of it. */
+const BOW_CUT: [Vec2, Vec2] = [
+  { x: 770, y: 120 },
+  { x: 850, y: 65 },
+]
+const BOW_CUT_WAYPOINT: Vec2 = { x: 840, y: 55 }
+
+function segmentsCross(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
+  const o = (p: Vec2, q: Vec2, r: Vec2) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)
+  return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0
+}
+
 export class CrewBuilder {
   readonly kf: CrewKeyframe[] = []
   pos: Vec2
@@ -243,10 +255,17 @@ export class CrewBuilder {
     return this.key(this.t)
   }
 
-  /** Walk in a straight line to `to` at `speed`, facing the direction of travel. Returns arrival time. */
+  /**
+   * Walk in a straight line to `to` at `speed`, facing the direction of travel. Returns arrival time.
+   * A line that would cut across the cut-back starboard bow edge goes via a point inboard of it instead.
+   */
   walkTo(to: Vec2, speed = WALK_SPEED, action: CrewAction = 'walk'): number {
     const d = dist(this.pos, to)
     if (d < 0.5) return this.t
+    if (segmentsCross(this.pos, to, BOW_CUT[0], BOW_CUT[1]) && dist(this.pos, BOW_CUT_WAYPOINT) > 0.5 && dist(to, BOW_CUT_WAYPOINT) > 0.5) {
+      this.walkTo(BOW_CUT_WAYPOINT, speed, action)
+      return this.walkTo(to, speed, action)
+    }
     this.key(this.t)
     this.action = action
     this.heading = headingTo(this.pos, to)
@@ -272,13 +291,18 @@ export class CrewBuilder {
     return this.t
   }
 
-  /** Keep pace with a moving reference: follow a list of (t, pos) samples with a fixed offset. */
-  follow(samples: { t: number; x: number; y: number; heading: number }[], forward: number, right: number, action: CrewAction = 'walk'): this {
+  /**
+   * Keep pace with a moving reference: follow a list of (t, pos) samples with a fixed offset. A sample the
+   * walker cannot reach at `maxSpeed` (a late start, or an offset point swept round by a fast pivot) is skipped,
+   * so he holds or runs straight to the first reachable one instead of snapping onto it.
+   */
+  follow(samples: { t: number; x: number; y: number; heading: number }[], forward: number, right: number, action: CrewAction = 'walk', maxSpeed = RUN_SPEED): this {
     this.key(this.t)
     this.action = action
     for (const s of samples) {
       if (s.t < this.t - 1e-6) continue
       const p = offset(s, s.heading, forward, right)
+      if (dist(this.pos, p) > maxSpeed * (s.t - this.t) + 0.5) continue
       this.pos = p
       this.heading = s.heading
       this.key(s.t)

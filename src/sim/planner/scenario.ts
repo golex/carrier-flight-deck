@@ -33,23 +33,26 @@ export interface LaunchSlot {
 
 /**
  * Planned shots (mm:ss after the first shot), following the reference cycle:
- *   Cat 1: 0:00 (tanker), 1:40, 4:20     Cat 4: 0:20, 2:05, 5:00
- *   Cat 2: 0:50, 2:40, 5:40              Cat 3: 1:15, 3:30, 6:10 suspended → 7:50
+ *   Cat 1: 0:00 (tanker), 1:40, 5:40     Cat 4: 0:20, 2:05, 5:00
+ *   Cat 2: 0:50, 2:40, 4:20              Cat 3: 1:30 (held until the cat 4 shot has gone, §1.14), 3:30, 6:10 suspended → 7:50
+ *   The corral jets go CO2 first so 207 can spread at the cat 1 holding node with CO2 empty.
  * Feed order respects the deck: stern and waist jets (inside the landing area) go first off
  * the waist cats, and El 1 stays empty because the cat 1 queue slot overlies it.
  */
+// via points keep the El 4 jets (312, 111) clear of the parked 307 on E4B and steer 207 out of the corral past
+// SP4 and CO2; checked with a footprint-overlap sweep over the launch.
 export const LAUNCHERS: LaunchSlot[] = [
   { slot: 'PT1', cat: 1, shotOffset: 0, type: 'FA18E', modex: '211', squadron: 'VFA-11', tanker: true },
   { slot: 'FI1', cat: 4, shotOffset: 20, type: 'FA18F', modex: '103', squadron: 'VFA-103', armed: true },
   { slot: 'SP2', cat: 2, shotOffset: 50, type: 'FA18E', modex: '305', squadron: 'VFA-31' },
-  { slot: 'FT2', cat: 3, shotOffset: 75, type: 'EA18G', modex: '501', squadron: 'VAQ-137' },
+  { slot: 'FT2', cat: 3, shotOffset: 90, type: 'EA18G', modex: '501', squadron: 'VAQ-137' },
   { slot: 'PT2', cat: 1, shotOffset: 100, type: 'FA18E', modex: '204', squadron: 'VFA-11', armed: true },
-  { slot: 'FT1', cat: 4, shotOffset: 125, type: 'FA18E', modex: '312', squadron: 'VFA-31', via: [{ x: 170, y: -45, heading: 0 }] },
+  { slot: 'FT1', cat: 4, shotOffset: 125, type: 'FA18E', modex: '312', squadron: 'VFA-31', via: [{ x: 170, y: -45, heading: 0 }, { x: 235, y: -48, heading: -30 }] },
   { slot: 'SP3', cat: 2, shotOffset: 160, type: 'FA18F', modex: '106', squadron: 'VFA-103', armed: true },
   { slot: 'FT3', cat: 3, shotOffset: 210, type: 'FA18E', modex: '301', squadron: 'VFA-31' },
-  { slot: 'CO1', cat: 1, shotOffset: 260, type: 'FA18E', modex: '207', squadron: 'VFA-11' },
-  { slot: 'E4A', cat: 4, shotOffset: 300, type: 'FA18F', modex: '111', squadron: 'VFA-103', via: [{ x: 215, y: -62, heading: 10 }] },
-  { slot: 'CO2', cat: 2, shotOffset: 340, type: 'EA18G', modex: '504', squadron: 'VAQ-137' },
+  { slot: 'CO1', cat: 1, shotOffset: 340, type: 'FA18E', modex: '207', squadron: 'VFA-11', via: [{ x: 558, y: 62, heading: -30 }] },
+  { slot: 'E4A', cat: 4, shotOffset: 300, type: 'FA18F', modex: '111', squadron: 'VFA-103', via: [{ x: 163, y: -45, heading: 60 }, { x: 235, y: -48, heading: -30 }] },
+  { slot: 'CO2', cat: 2, shotOffset: 260, type: 'EA18G', modex: '504', squadron: 'VAQ-137' },
   { slot: 'E3A', cat: 3, shotOffset: 470, type: 'FA18E', modex: '310', squadron: 'VFA-31', suspend: true, armed: true },
 ]
 

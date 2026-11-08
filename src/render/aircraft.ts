@@ -57,9 +57,10 @@ export function drawAircraft(
   if (s.power && s.power > 0 && z > 0.4) {
     const len = s.power === 2 ? 22 : 9
     const grad = ctx.createLinearGradient(-spec.length / 2, 0, -spec.length / 2 - len, 0)
-    grad.addColorStop(0, s.power === 2 ? 'rgba(255,177,74,0.85)' : 'rgba(255,220,180,0.35)')
-    grad.addColorStop(1, 'rgba(255,177,74,0)')
+    grad.addColorStop(0, s.power === 2 ? T.burner : T.burnerGlow)
+    grad.addColorStop(1, 'transparent') // canvas gradients interpolate premultiplied, so this fades the token colour out
     ctx.fillStyle = grad
+    ctx.globalAlpha = s.power === 2 ? 0.85 : 1
     ctx.beginPath()
     ctx.moveTo(-spec.length / 2 + 2, -3.2)
     ctx.lineTo(-spec.length / 2 - len, -1.2)
@@ -67,6 +68,7 @@ export function drawAircraft(
     ctx.lineTo(-spec.length / 2 + 2, 3.2)
     ctx.closePath()
     ctx.fill()
+    ctx.globalAlpha = 1
   }
 
   const fill = opts.dim ? T.jet2 : T.jet
@@ -96,7 +98,7 @@ export function drawAircraft(
     ctx.translate(0, -hinge)
     ctx.fill(parts.wingOuterR)
     if (parts.podR) {
-      ctx.fillStyle = '#5a6570'
+      ctx.fillStyle = T.jetPod
       ctx.fill(parts.podR)
       ctx.fillStyle = fill
     }
@@ -109,7 +111,7 @@ export function drawAircraft(
     ctx.translate(0, hinge)
     ctx.fill(parts.wingOuterL)
     if (parts.podL) {
-      ctx.fillStyle = '#5a6570'
+      ctx.fillStyle = T.jetPod
       ctx.fill(parts.podL)
       ctx.fillStyle = fill
     }
@@ -119,8 +121,8 @@ export function drawAircraft(
     const p = parts[k]
     if (!p) continue
     if (k === 'canopy') ctx.fillStyle = T.canopy
-    else if (k === 'finR' || k === 'finL' || k === 'nozzles') ctx.fillStyle = opts.dim ? T.jet2 : '#1e2124'
-    else if (k.startsWith('pod')) ctx.fillStyle = '#5a6570'
+    else if (k === 'finR' || k === 'finL' || k === 'nozzles') ctx.fillStyle = opts.dim ? T.jet2 : T.jetFin
+    else if (k.startsWith('pod')) ctx.fillStyle = T.jetPod
     else ctx.fillStyle = fill
     ctx.fill(p)
   }
@@ -159,9 +161,18 @@ export function drawAircraft(
     ctx.font = `${Math.max(9, Math.min(12, 6 + z * 2))}px ${T.fontMono}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = T.markWhite
     ctx.globalAlpha = Math.min(1, (z - 1.6) * 1.5)
-    ctx.fillText(e.modex, sc.x, sc.y - (spec.span / 2 + 7) * z)
+    // above the jet's screen-space half-height at its heading, so a jet pointing across the deck keeps it off nose and tail
+    const h = (s.heading * Math.PI) / 180
+    const hh = Math.abs(Math.sin(h)) * spec.length / 2 + Math.abs(Math.cos(h)) * spec.span / 2
+    const ly = sc.y - (hh + 5) * z
+    // dark halo so the white number reads on the deck and on the light sea
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = 3
+    ctx.strokeStyle = T.deckEdge
+    ctx.strokeText(e.modex, sc.x, ly)
+    ctx.fillStyle = T.markWhite
+    ctx.fillText(e.modex, sc.x, ly)
     ctx.restore()
   }
 }

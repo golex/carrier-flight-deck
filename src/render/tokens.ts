@@ -5,6 +5,7 @@ export interface Tokens {
   ink2: string
   ink3: string
   line: string
+  panel: string
   sea: string
   sea2: string
   deck: string
@@ -19,6 +20,9 @@ export interface Tokens {
   jet2: string
   canopy: string
   burner: string
+  burnerGlow: string
+  jetPod: string
+  jetFin: string
   steam: string
   jersey: Record<string, string>
   fontSans: string
@@ -37,6 +41,7 @@ export function tokens(): Tokens {
     ink2: v('--ink-2'),
     ink3: v('--ink-3'),
     line: v('--line'),
+    panel: v('--panel'),
     sea: v('--sea'),
     sea2: v('--sea-2'),
     deck: v('--deck'),
@@ -51,6 +56,9 @@ export function tokens(): Tokens {
     jet2: v('--jet-2'),
     canopy: v('--canopy'),
     burner: v('--burner'),
+    burnerGlow: v('--burner-glow'),
+    jetPod: v('--jet-pod'),
+    jetFin: v('--jet-fin'),
     steam: v('--steam'),
     jersey: {
       yellow: v('--jersey-yellow'),

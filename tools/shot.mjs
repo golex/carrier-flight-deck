@@ -1,7 +1,8 @@
 // Screenshot the running dev server at a sim time / view.
-// Usage: node tools/shot.mjs <out.png> [t=0] [view=deck] [width=1440] [height=900] [zoom=1] [cx] [cy]
+// Usage: node tools/shot.mjs <out.png> [t=0] [view=deck] [width=1440] [height=900] [zoom=1] [cx] [cy] [extraQuery]
+// extraQuery is appended to the page URL, e.g. "fakepattern=1" (pass '' for cx/cy to skip them).
 import { chromium } from 'playwright'
-const [,, out = 'tools/out/shot.png', t = '0', view = 'deck', w = '1440', h = '900', zoomF = '1', cx = '', cy = ''] = process.argv
+const [,, out = 'tools/out/shot.png', t = '0', view = 'deck', w = '1440', h = '900', zoomF = '1', cx = '', cy = '', extraQuery = ''] = process.argv
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: +w, height: +h }, deviceScaleFactor: 1 })
 const errors = []
@@ -10,6 +11,7 @@ page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) })
 const q = new URLSearchParams({ t, view, zoom: zoomF, nointro: '1' })
 if (cx) q.set('cx', cx)
 if (cy) q.set('cy', cy)
+for (const [k, v] of new URLSearchParams(extraQuery.replace(/^[?&]/, ''))) q.set(k, v)
 await page.goto(`http://localhost:5173/?${q}`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(700)
 await page.screenshot({ path: out })

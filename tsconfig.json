@@ -16,5 +16,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["src", "tools"]
+  "include": ["src", "tools"],
+  "exclude": ["tools/out", "node_modules", "dist"]
 }

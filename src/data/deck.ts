@@ -188,18 +188,18 @@ const island = {
 }
 
 const areas: NamedArea[] = [
-  { id: 'bow', name: 'the bow', polygon: [{ x: 700, y: -44.4 }, { x: 837.9, y: -66.2 }, { x: 842, y: -63 }, { x: 1092, y: -48 }, { x: 1092, y: 42 }, { x: 850, y: 65 }, { x: 810, y: 80 }, { x: 700, y: 80 }], label: { x: 960, y: 58 }, note: 'Bow rows one to four; the main recovery pack' },
+  { id: 'bow', name: 'the bow', polygon: [{ x: 700, y: -44.4 }, { x: 837.9, y: -66.2 }, { x: 842, y: -63 }, { x: 1092, y: -48 }, { x: 1092, y: 42 }, { x: 850, y: 65 }, { x: 810, y: 80 }, { x: 700, y: 80 }], label: { x: 1040, y: -36 }, note: 'Bow rows one to four; the main recovery pack' },
   { id: 'point', name: 'the point', polygon: [{ x: 661, y: 80 }, { x: 661, y: 120 }, { x: 770, y: 120 }, { x: 810, y: 98 }, { x: 810, y: 80 }], label: { x: 730, y: 112 } },
   { id: 'crotch', name: 'the crotch', polygon: [{ x: 800, y: -25 }, { x: 800, y: -60.2 }, { x: 837.9, y: -66.2 }, { x: 842, y: -63 }, { x: 900, y: -59.5 }, { x: 900, y: -25 }], label: { x: 852, y: -44 } },
   { id: 'corral', name: 'the corral', polygon: rect(509, 591, 65, 120), label: { x: 550, y: 114 } },
   { id: 'street', name: 'the street', polygon: [{ x: 470, y: 60 }, { x: 700, y: 23 }, { x: 700, y: 65 }, { x: 470, y: 65 }], label: { x: 650, y: 50 } },
-  { id: 'six-pack', name: 'the six-pack', polygon: [{ x: 445, y: -2 }, { x: 690, y: -41 }, { x: 690, y: 33 }, { x: 445, y: 62 }], label: { x: 572, y: -14 } },
+  { id: 'six-pack', name: 'the six-pack', polygon: [{ x: 445, y: -2 }, { x: 690, y: -41 }, { x: 690, y: 33 }, { x: 445, y: 62 }], label: { x: 560, y: 45 } },
   { id: 'hummer-hole', name: 'hummer hole', polygon: rect(300, 395, 47, 80), label: { x: 348, y: 40 } },
   { id: 'junkyard', name: 'the junkyard', polygon: [{ x: 251, y: 40 }, { x: 300, y: 40 }, { x: 300, y: 80 }, { x: 290, y: 80 }, { x: 290, y: 120 }, { x: 251, y: 120 }], label: { x: 270, y: 32 } },
-  { id: 'patio', name: 'the patio', polygon: [{ x: 60, y: 57 }, { x: 182, y: 37 }, { x: 182, y: 120 }, { x: 73, y: 97 }, { x: 56, y: 66 }], label: { x: 120, y: 60 } },
-  { id: 'fantail', name: 'the fantail', polygon: [{ x: 0, y: -29 }, { x: 60, y: -38.5 }, { x: 60, y: 56.7 }, { x: 0, y: 66.2 }], label: { x: 30, y: 74 } },
+  { id: 'patio', name: 'the patio', polygon: [{ x: 60, y: 57 }, { x: 182, y: 37 }, { x: 182, y: 120 }, { x: 73, y: 97 }, { x: 56, y: 66 }], label: { x: 95, y: 75 } },
+  { id: 'fantail', name: 'the fantail', polygon: [{ x: 0, y: -29 }, { x: 60, y: -38.5 }, { x: 60, y: 56.7 }, { x: 0, y: 66.2 }], label: { x: 30, y: 58 } },
   { id: 'finger', name: 'the finger', polygon: [{ x: 215, y: -70 }, { x: 290, y: -75 }, { x: 290, y: -131 }, { x: 215, y: -130 }], label: { x: 252, y: -80 } },
-  { id: 'la', name: 'landing area', polygon: landingPolygon, label: { x: 560, y: -125 } },
+  { id: 'la', name: 'landing area', polygon: landingPolygon, label: { x: 680, y: -118 } },
 ]
 
 interface SlotSpec {
@@ -232,7 +232,7 @@ const slotSpecs: SlotSpec[] = [
   { id: 'B5P', area: 'crotch', x: 816, y: -33, heading: 180, flags: 'R' },
   // starboard deck edge, nose inboard, tail over the side
   { id: 'PT1', area: 'point', x: 708, y: 104, heading: -90, flags: 'RL', feeds: 1 },
-  { id: 'PT2', area: 'point', x: 742, y: 104, heading: -90, flags: 'RL', feeds: 1 },
+  { id: 'PT2', area: 'point', x: 760, y: 107, heading: -90, flags: 'RL', feeds: 1 },
   { id: 'E1A', area: 'el-1', x: 608, y: 96, heading: -90, flags: 'RL', feeds: 1 },
   { id: 'E1B', area: 'el-1', x: 643, y: 96, heading: -90, flags: 'RL', feeds: 1 },
   { id: 'CO1', area: 'corral', x: 531, y: 96, heading: -90, flags: 'RL', feeds: 1 },
@@ -287,7 +287,8 @@ const launchSpots = slots
   .filter(s => s.launch)
   .map(s => ({ ...s, heading: s.launchHeading ?? s.heading }))
 
-const dearmStop: Pose = { x: 645, y: -5, heading: 75 }
+// 2 ft forward-starboard of the §3 table's (645,-5) so the folded footprint's port aft corner is clear of the foul line
+const dearmStop: Pose = { x: 647, y: -2, heading: 75 }
 
 /** Jet centre positions along the exit from the wires to the bow (§1.15). */
 const recoveryRoute: Pose[] = [
@@ -343,7 +344,7 @@ const stations: Record<string, Vec2> = {
   medical: { x: 300, y: 94 },
   bowBubble: { x: 760, y: 18 },
   waistBubble: { x: 440, y: -92 },
-  dearm: { x: 645, y: -5 },
+  dearm: { x: 647, y: -2 },
   tractorPool: { x: 270, y: 72 },
   fuelsMuster: { x: 150, y: 112 },
   ordnanceMuster: { x: 230, y: 112 },
@@ -398,6 +399,6 @@ export const VIEWS: { id: string; name: string; key: string; minX: number; minY:
   { id: 'deck', name: 'Whole deck', key: '1', minX: -20, minY: -160, maxX: 1110, maxY: 135 },
   { id: 'bow', name: 'Bow catapults', key: '2', minX: 640, minY: -120, maxX: 1100, maxY: 130 },
   { id: 'waist', name: 'Waist catapults', key: '3', minX: 280, minY: -150, maxX: 790, maxY: 70 },
-  { id: 'wires', name: 'Arresting gear', key: '4', minX: 0, minY: -140, maxX: 420, maxY: 130 },
+  { id: 'wires', name: 'Arresting gear', key: '4', minX: 0, minY: -150, maxX: 640, maxY: 130 },
   { id: 'island', name: 'Island and six-pack', key: '5', minX: 240, minY: -60, maxX: 720, maxY: 130 },
 ]

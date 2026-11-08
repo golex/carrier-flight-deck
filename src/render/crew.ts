@@ -18,7 +18,8 @@ export function drawCrew(
   const info = ROLES[e.role]
   const colour = T.jersey[info.jersey] ?? T.jersey.white!
   const sc = cam.worldToScreen({ x: s.x, y: s.y })
-  const r = Math.max(2.2, 1.1 * z)
+  // at whole-deck and phone zoom a smaller floor keeps a person well under half a jet's span
+  const r = Math.max(z < 0.6 ? 1.3 : 2.2, 1.1 * z)
   const dimmed = highlight !== null && !highlight.has(e.role)
 
   ctx.save()
@@ -38,9 +39,12 @@ export function drawCrew(
   ctx.arc(sc.x + ox, sc.y + oy, r, 0, Math.PI * 2)
   ctx.fillStyle = colour
   ctx.fill()
-  ctx.lineWidth = Math.max(0.6, 0.35 * z)
-  ctx.strokeStyle = T.deckEdge
-  ctx.stroke()
+  if (z >= 0.6) {
+    // small dots stay flat jersey colour
+    ctx.lineWidth = Math.max(0.6, 0.35 * z)
+    ctx.strokeStyle = T.deckEdge
+    ctx.stroke()
+  }
 
   // heading tick at mid zoom and above
   if (z > 2.2) {

@@ -3,6 +3,9 @@ import type { DeckGeometry } from '../data/deckTypes'
 import type { EquipmentKeyframe, Vec2 } from '../sim/types'
 import { tokens } from './tokens'
 
+/** catwalk width outboard of the deck edge, ft */
+const CATWALK_FT = 12
+
 /** Draw a closed polygon in world coordinates. Caller sets fill/stroke. */
 export function polygon(ctx: CanvasRenderingContext2D, cam: Camera, pts: readonly Vec2[]): void {
   ctx.beginPath()
@@ -26,15 +29,18 @@ export function segment(ctx: CanvasRenderingContext2D, cam: Camera, a: Vec2, b: 
  * Draws the static deck plus equipment state (JBDs, shuttles, wires).
  * Everything is derived from DeckGeometry so the numbers live in one place.
  */
-export function drawDeck(
-  ctx: CanvasRenderingContext2D,
-  cam: Camera,
-  g: DeckGeometry,
-  eq: EquipmentKeyframe,
-  showLabels: boolean,
-): void {
+export function drawDeck(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry, eq: EquipmentKeyframe): void {
   const z = cam.zoom
   const T = tokens()
+
+  // catwalks: a 12 ft dark rim outboard of the deck edge (the deck fill covers the inboard half), so crew and
+  // overhanging tails at the edge read as over the catwalk, not the water
+  ctx.strokeStyle = T.deckEdge
+  ctx.lineWidth = 2 * CATWALK_FT * z
+  ctx.lineJoin = 'round'
+  polygon(ctx, cam, g.outline)
+  ctx.stroke()
+  ctx.lineJoin = 'miter'
 
   // hull shadow below the deck
   ctx.fillStyle = T.deckEdge
@@ -146,19 +152,23 @@ export function drawDeck(
     ctx.stroke()
   }
 
-  // island
-  ctx.fillStyle = T.island
+  // island: a raised block casting a shadow, lighter than the elevators, with Pri-Fly always marked
+  ctx.save()
+  ctx.translate(3, 3)
+  ctx.fillStyle = T.deckEdge
+  ctx.globalAlpha = 0.6
+  polygon(ctx, cam, g.island.polygon)
+  ctx.fill()
+  ctx.restore()
+  ctx.fillStyle = T.island2
   polygon(ctx, cam, g.island.polygon)
   ctx.fill()
   ctx.strokeStyle = T.deckEdge
-  ctx.lineWidth = Math.max(0.75, 1 * z)
+  ctx.lineWidth = Math.max(1, 1.5 * z)
   ctx.stroke()
-  if (z > 1.2) {
-    // Pri-Fly footprint
-    const pf = cam.worldToScreen(g.island.priFly)
-    ctx.fillStyle = T.island2
-    ctx.fillRect(pf.x - 6 * z, pf.y - 5 * z, 12 * z, 10 * z)
-  }
+  const pf = cam.worldToScreen(g.island.priFly)
+  ctx.fillStyle = T.island
+  ctx.fillRect(pf.x - 6 * z, pf.y - 5 * z, 12 * z, 10 * z)
 
   // LSO platform
   ctx.fillStyle = T.deck2
@@ -174,11 +184,10 @@ export function drawDeck(
   ctx.beginPath()
   ctx.arc(fl.x, fl.y, Math.max(1.5, 2 * z), 0, Math.PI * 2)
   ctx.fill()
-
-  if (showLabels) drawLabels(ctx, cam, g)
 }
 
-function drawLabels(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry): void {
+/** Deck names (cats, elevators, areas, wires, island). Drawn after the jets and crew, each with a dark halo. */
+export function drawDeckLabels(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry): void {
   const z = cam.zoom
   const T = tokens()
   if (z < 0.55) return
@@ -186,27 +195,40 @@ function drawLabels(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry)
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = T.markWhite
+  ctx.strokeStyle = T.deckEdge
+  ctx.lineWidth = 3
+  ctx.lineJoin = 'round'
+  const label = (text: string, x: number, y: number) => {
+    ctx.strokeText(text, x, y)
+    ctx.fillText(text, x, y)
+  }
   ctx.globalAlpha = Math.min(1, (z - 0.5) * 2)
   for (const cat in g.catapults) {
     const c = g.catapults[cat]!
     const p = cam.worldToScreen({ x: (c.start.x + c.end.x) / 2, y: (c.start.y + c.end.y) / 2 - 10 })
-    ctx.fillText(`cat ${c.id}`, p.x, p.y)
+    label(`cat ${c.id}`, p.x, p.y)
   }
   for (const el of g.elevators) {
     const cx = el.polygon.reduce((s, p) => s + p.x, 0) / el.polygon.length
     const cy = el.polygon.reduce((s, p) => s + p.y, 0) / el.polygon.length
     const p = cam.worldToScreen({ x: cx, y: cy })
-    ctx.fillText(`el ${el.id}`, p.x, p.y)
+    label(`el ${el.id}`, p.x, p.y)
   }
+  // the island: dark text on the light block
+  const isl = g.island.polygon
+  const ip = cam.worldToScreen({ x: isl.reduce((s, p) => s + p.x, 0) / isl.length, y: isl.reduce((s, p) => s + p.y, 0) / isl.length })
+  ctx.fillStyle = T.ink
+  ctx.fillText('island', ip.x, ip.y)
+  ctx.fillStyle = T.markWhite
   if (z > 0.9) {
     ctx.globalAlpha = Math.min(0.8, (z - 0.9) * 1.5)
     for (const a of g.areas) {
       const p = cam.worldToScreen(a.label)
-      ctx.fillText(a.name, p.x, p.y)
+      label(a.name, p.x, p.y)
     }
     for (const w of g.wires) {
       const p = cam.worldToScreen({ x: w.a.x, y: w.a.y })
-      ctx.fillText(String(w.n), p.x, p.y + 8)
+      label(String(w.n), p.x, p.y + 8)
     }
   }
   ctx.globalAlpha = 1

@@ -11,6 +11,7 @@
   --line: #d6d3cb;
   --line-2: #bdb9af;
   --panel: rgba(244, 243, 239, 0.94);
+  --scrim: rgba(244, 243, 239, 0.72);
   --focus: #1f6feb;
 
   /* sea and deck */
@@ -39,6 +40,9 @@
   --jet-2: #3c4046;
   --canopy: #8d9ba6;
   --burner: #ffb14a;
+  --burner-glow: rgba(255, 220, 180, 0.35);
+  --jet-pod: #5a6570;
+  --jet-fin: #1e2124;
   --steam: rgba(255, 255, 255, 0.55);
 
   --radius: 6px;
@@ -290,6 +294,9 @@ button, input, select {
   font-size: 11px;
   color: var(--ink-2);
   white-space: nowrap;
+  right: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
 }
 .seg.active .seg-label { color: var(--ink); }
@@ -311,7 +318,7 @@ button, input, select {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(244, 243, 239, 0.72);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
   transition: opacity 0.3s ease;
 }

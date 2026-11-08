@@ -6,6 +6,8 @@ and the deck respotted for the next event. Every dot on deck is a person in a co
 
 Static site: Vite + vanilla TypeScript + Canvas 2D, no framework.
 
+Live: https://golex.github.io/carrier-flight-deck/ (deployed from `master` by the Pages workflow).
+
 ## Run
 
 ```

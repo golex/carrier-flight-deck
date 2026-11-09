@@ -98,6 +98,11 @@ function layout(cam: Camera, panelOpen: boolean): { x: number; y: number; w: num
   return { x: MARGIN, y, w: size.w, h: size.h }
 }
 
+/** The inset's screen box (CSS px), or null when it does not fit. */
+export function patternInsetBox(cam: Camera, panelOpen: boolean): { x: number; y: number; w: number; h: number } | null {
+  return layout(cam, panelOpen)
+}
+
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -113,7 +118,7 @@ export function drawPatternInset(
   cam: Camera,
   tl: Timeline,
   t: number,
-  opts: { visible: boolean; panelOpen: boolean },
+  opts: { visible: boolean; panelOpen: boolean; alphaMul: number },
 ): void {
   // sample first: visibility depends on it
   const samples: PatternState[] = []
@@ -128,7 +133,7 @@ export function drawPatternInset(
   lastNow = now
   if (reducedMotion?.matches || dt === 0) alpha = target
   else alpha += Math.sign(target - alpha) * Math.min(Math.abs(target - alpha), dt / FADE_S)
-  if (alpha <= 0.001) return
+  if (alpha * opts.alphaMul <= 0.001) return
 
   const box = layout(cam, opts.panelOpen)
   if (!box) return
@@ -142,7 +147,7 @@ export function drawPatternInset(
   const P = (p: Pt): Pt => ({ x: o.x + p.x * k, y: o.y + p.y * k })
 
   ctx.save()
-  ctx.globalAlpha = alpha
+  ctx.globalAlpha = alpha * opts.alphaMul
 
   // panel
   roundRect(ctx, box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1, 6)

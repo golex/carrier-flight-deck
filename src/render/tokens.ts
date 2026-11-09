@@ -85,4 +85,16 @@ export function tokens(): Tokens {
 
 export function resetTokens(): void {
   cache = null
+  varCache.clear()
+}
+
+const varCache = new Map<string, string>()
+/** Any CSS custom property, e.g. cssVar('--sea-trough'). Cached; cleared by resetTokens(). */
+export function cssVar(name: string): string {
+  let v = varCache.get(name)
+  if (v === undefined) {
+    v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    varCache.set(name, v)
+  }
+  return v
 }

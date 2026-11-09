@@ -1,4 +1,11 @@
 import type { Vec2 } from '../sim/types'
+import { reducedMotion } from './frame'
+
+/** Camera tween length (s) for a zoom change: longer for bigger jumps; instant under reduced motion. */
+export function tweenDuration(z0: number, z1: number): number {
+  if (reducedMotion()) return 0
+  return Math.min(1.8, Math.max(0.7, 0.7 + 0.22 * Math.abs(Math.log2(z1 / z0))))
+}
 
 /**
  * 2-D camera mapping world feet → CSS pixels.

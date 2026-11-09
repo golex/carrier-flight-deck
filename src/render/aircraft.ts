@@ -4,6 +4,7 @@ import type { AircraftState } from '../sim/sample'
 import { SILHOUETTES, type SilhouetteSpec } from '../data/silhouettes'
 import { tokens } from './tokens'
 import { drawSignal } from './crew'
+import type { Frame } from './frame'
 
 interface CompiledSilhouette {
   spec: SilhouetteSpec
@@ -30,6 +31,8 @@ export interface AircraftDrawOpts {
   selected?: boolean
   dim?: boolean
   showModex?: boolean
+  /** this frame's shared context (lane C's exhaust reads it) */
+  frame?: Frame
 }
 
 /**

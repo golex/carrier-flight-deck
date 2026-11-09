@@ -16,8 +16,8 @@
   --focus: #1f6feb;
 
   /* sea and deck */
-  --sea: #cfd6d8;
-  --sea-2: #c2cacd;
+  --sea: #4d6670;                          /* was #cfd6d8 */
+  --sea-2: #445c66;                        /* was #c2cacd */
   --deck: #4a4d52;
   --deck-2: #41444a;
   --deck-edge: #2d2f33;
@@ -54,6 +54,66 @@
   --radius-sm: 4px;
   --gutter: 16px;
   --shadow: 0 1px 2px rgba(27, 28, 30, 0.08), 0 8px 24px rgba(27, 28, 30, 0.08);
+
+  /* ---- visuals branch tokens (docs/design/visuals-spec.md §2.4) ---- */
+  /* sea (new) */
+  --sea-crest: rgba(222, 234, 236, 0.55);
+  --sea-trough: rgba(16, 30, 38, 0.55);
+  --foam: rgba(244, 248, 248, 0.95);
+  --foam-2: rgba(244, 248, 248, 0.45);
+  --wake-aerated: rgba(112, 160, 166, 0.55);
+  --wake-slick: rgba(150, 176, 186, 0.30);
+  --waterline: rgba(16, 30, 38, 0.35);
+  --shadow-ship: rgba(10, 18, 24, 0.42);
+  --shadow-air: rgba(10, 18, 24, 0.30);
+  --shadow-deck: rgba(16, 17, 19, 0.35);
+  /* ship */
+  --catwalk: #34373b;
+  --catwalk-grate: rgba(232, 230, 223, 0.10);
+  --net: rgba(232, 230, 223, 0.28);
+  --sponson: #3a3d42;
+  --island-3: #7a7d83;
+  --island-4: #888b91;
+  --deck-wear: #424549;
+  --skid: rgba(18, 19, 21, 0.22);
+  --elevator-gap: rgba(0, 0, 0, 0.45);
+  --jbd-bar: #2a2c30;
+  --wire-hot: #f4f2ea;
+  --beacon-green: #39d353;
+  --beacon-amber: #ffb000;
+  --beacon-red: #ff3b30;
+  /* flair (--steam, --burner, --burner-glow already exist and are kept) */
+  --burner-core: #fff4dc;
+  --burner-diamond: rgba(255, 250, 236, 0.85);
+  --heat: rgba(255, 255, 255, 0.20);
+  --blast-hatch: rgba(200, 71, 59, 0.30);
+  --blast-paint: rgba(184, 51, 44, 0.55);
+  --tyre-smoke: rgba(236, 236, 232, 0.60);
+  --spark: #ffd27a;
+  /* HUD on the canvas */
+  --hud-ink: #ece9e1;
+  --hud-ink-2: rgba(236, 233, 225, 0.66);
+  --hud-halo: rgba(20, 22, 25, 0.85);
+  --hud-warn: #ffb000;
+  --hud-alert: #ff3b30;
+  /* scope (muted ink, not phosphor green) */
+  --scope-bg: #10161a;
+  --scope-bg-2: #0b1013;
+  --scope-ring: rgba(170, 205, 192, 0.20);
+  --scope-ring-2: rgba(170, 205, 192, 0.38);
+  --scope-leg: rgba(170, 205, 192, 0.45);
+  --scope-ink: #d6e6df;
+  --scope-ink-2: rgba(214, 230, 223, 0.62);
+  --scope-ink-3: rgba(214, 230, 223, 0.30);
+  --scope-sweep: rgba(170, 230, 205, 0.18);
+  --scope-blip: #eef8f3;
+  --scope-clutter: rgba(170, 205, 192, 0.08);
+  --scope-warn: #f0b44c;
+  --scope-alert: #ef6a5c;
+  /* DOM chrome over the canvas */
+  --ink-on-sea: #eef1ef;
+  --ink-on-sea-2: rgba(238, 241, 239, 0.74);
+  --halo-on-sea: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 * { box-sizing: border-box; }
@@ -129,17 +189,21 @@ button, input, select {
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.1;
+  color: var(--ink-on-sea);
+  text-shadow: var(--halo-on-sea);
 }
 .hdr-sub {
   margin: 2px 0 0;
-  color: var(--ink-2);
+  color: var(--ink-on-sea-2);
+  text-shadow: var(--halo-on-sea);
   font-size: 13px;
 }
 .hdr-phase {
   margin: 10px 0 0;
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--ink);
+  color: var(--ink-on-sea);
+  text-shadow: var(--halo-on-sea);
 }
 
 /* ---------- side panel ---------- */

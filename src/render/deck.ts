@@ -1,7 +1,8 @@
 import type { Camera } from './camera'
 import type { DeckGeometry } from '../data/deckTypes'
-import type { EquipmentKeyframe, Vec2 } from '../sim/types'
+import type { Vec2 } from '../sim/types'
 import { tokens } from './tokens'
+import type { Frame } from './frame'
 
 /** catwalk width outboard of the deck edge, ft */
 const CATWALK_FT = 12
@@ -29,7 +30,8 @@ export function segment(ctx: CanvasRenderingContext2D, cam: Camera, a: Vec2, b: 
  * Draws the static deck plus equipment state (JBDs, shuttles, wires).
  * Everything is derived from DeckGeometry so the numbers live in one place.
  */
-export function drawDeck(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry, eq: EquipmentKeyframe): void {
+export function drawDeck(f: Frame, g: DeckGeometry): void {
+  const { ctx, cam, eq } = f
   const z = cam.zoom
   const T = tokens()
 
@@ -187,7 +189,7 @@ export function drawDeck(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeom
 }
 
 /** Deck names (cats, elevators, areas, wires, island). Drawn after the jets and crew, each with a dark halo. */
-export function drawDeckLabels(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry): void {
+export function drawDeckLabels(ctx: CanvasRenderingContext2D, cam: Camera, g: DeckGeometry, opts?: { skipCats?: boolean }): void {
   const z = cam.zoom
   const T = tokens()
   if (z < 0.55) return
@@ -204,6 +206,7 @@ export function drawDeckLabels(ctx: CanvasRenderingContext2D, cam: Camera, g: De
   }
   ctx.globalAlpha = Math.min(1, (z - 0.5) * 2)
   for (const cat in g.catapults) {
+    if (opts?.skipCats) break // hud.ts draws the cat tags at this anchor
     const c = g.catapults[cat]!
     const p = cam.worldToScreen({ x: (c.start.x + c.end.x) / 2, y: (c.start.y + c.end.y) / 2 - 10 })
     label(`cat ${c.id}`, p.x, p.y)

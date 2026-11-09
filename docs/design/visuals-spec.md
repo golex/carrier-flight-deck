@@ -542,9 +542,9 @@ export function tweenDuration(z0: number, z1: number): number   // clamp(0.7 + 0
 
 **VIEWS row** (data/deck.ts):
 ```ts
-{ id: 'pattern', name: 'Whole pattern', key: '6', minX: -20112, minY: -19443, maxX: 18774, maxY: 4861 }
+{ id: 'pattern', name: 'Whole pattern', key: '6', minX: -29834, minY: -31000, maxX: 30926, maxY: 31000 }
 ```
-This fits at about z = 0.027 at 1440×900 with the panel open, which is the full scope.
+This fits at about z = 0.012 at 1440×900 with the panel open: the full scope with the whole 5 nm ring (review SPEC-02; the original row cut the ring off).
 
 **Airborne jets (`drawAirborne`):**
 - World position comes from `nmToWorld(sample)`. Heading comes from the track tangent, `sample(t) - sample(t - 1)`.
@@ -746,12 +746,12 @@ Write outputs to `tools/out/visuals/acc-*.png`. Every command must exit 0 with n
 | # | Command | Expected |
 |---|---|---|
 | 1 | `node tools/shot.mjs tools/out/visuals/acc-01-deck.png 330 deck 1440 900 1` | Slate sea with visible chop. A wake leaves the stern off the left edge: churned foam and prop lobes just aft of the ramp, a teal band behind it. Kelvin feathers flare at ±19.5 deg, about 377 ft outboard at the stern. The bow moustache shows past both bow edges, with stem foam ahead of the bow. The ship shadow falls down-right. Layered island with its shadow off the starboard edge, a green beacon. **Steam from cat 4's shot (t=320) drifting aft along the waist**; slot wisps. Every jersey dot visible in `base-deck.png` is still visible. Header text is light |
-| 2 | `node tools/shot.mjs tools/out/visuals/acc-02-final.png 296 bow 1440 900 2.5` | 211 on cat 1 in salute: twin burner plumes with shock diamonds. JBD 1 drawn as a raised bar with a shadow and a yellow lip. A red hatched blast cone **cut off at the JBD**. Painted hatching aft of it. Heat lines. An amber cat light. The tag reads `cat 1 · FINAL T-04`. The crew dots near the cone are drawn on top |
-| 3 | `node tools/shot.mjs tools/out/visuals/acc-03-stroke.png 301 bow 1440 900 1.5` | 211 mid-stroke: a steam ribbon densest at the aft end of cat 1, a shuttle streak, speed lines, `cat 1 · SHOT`. Shooter and deck-edge dots sit over the steam |
-| 4 | `node tools/shot.mjs tools/out/visuals/acc-04-off.png 304 bow 1440 900 0.6` | 211 off the bow over the sea, its shadow separated by ≥ 20 ft, a ruffle beneath it, the water-brake burst at the end of the track, the ribbon fading |
+| 2 | `node tools/shot.mjs tools/out/visuals/acc-02-final.png 296 bow 1440 900 1.7 860 50` | 211 on cat 1 in salute: twin burner plumes with shock diamonds. JBD 1 drawn as a raised bar with a shadow and a yellow lip. A red hatched blast cone **cut off at the JBD**. Painted hatching aft of it. Heat lines. An amber cat light. The tag reads `cat 1 · FINAL T-04`. The crew dots near the cone are drawn on top |
+| 3 | `node tools/shot.mjs tools/out/visuals/acc-03-stroke.png 301 bow 1440 900 1.5 900 50` | 211 mid-stroke: a steam ribbon densest at the aft end of cat 1, a shuttle streak, speed lines, `cat 1 · SHOT`. Shooter and deck-edge dots sit over the steam |
+| 4 | `node tools/shot.mjs tools/out/visuals/acc-04-off.png 303 bow 1440 900 0.6 1300 0` | 211 off the bow over the sea, its shadow separated by ≥ 20 ft, a ruffle beneath it, the water-brake burst at the end of the track, the ribbon fading |
 | 5 | `node tools/shot.mjs tools/out/visuals/acc-05-trap.png 900.6 wires 1440 900 1.5` | 203 just after touchdown: smoke left behind at the gear. The engaged wire pulled into a **V** to the hook, hot white. No sparks |
 | 6 | `node tools/shot.mjs tools/out/visuals/acc-06-skids.png 1105 wires 1440 900 1` | Fresh skid marks in the touchdown zone, one per trap so far, plus the faint pre-seeded marks |
-| 7 | `node tools/shot.mjs tools/out/visuals/acc-07-bolter.png 1200.3 wires 1440 900 1.5` | 304 bolter: hook-skip sparks, twin burners, an amber `BOLTER` callout. Also `1196 wires … 0.8`: 304 in the groove behind the ramp with its shadow on the sea, offset 40-80 ft to starboard |
+| 7 | `node tools/shot.mjs tools/out/visuals/acc-07-bolter.png 1200.3 wires 1440 900 1.5` | 304 bolter: hook-skip sparks, twin burners, an amber `BOLTER` callout. Also `1196 wires … 0.8 -600 0`: 304 in the groove behind the ramp with its shadow on the sea, offset 40-80 ft to starboard |
 | 8 | `node tools/shot.mjs tools/out/visuals/acc-08-waveoff.png 1282 wires 1440 900 1` | 107 wave-off: red `WAVE OFF` callout, burners, and the lens ring red (check with `reduced=1` as extraQuery for the steady-on state) |
 | 9 | `node tools/shot.mjs tools/out/visuals/acc-09-ship.png 1000 deck 1440 900 0.2` | SHIP band (z ≈ 0.18): the whole ship small, a wake more than 1 nm long, crew faded out, airborne jets as silhouettes with altitude-offset shadows and `modex · alt` labels. Inset faded. Scale bar `1000 ft` |
 | 10 | `node tools/shot.mjs tools/out/visuals/acc-10-iris.png 1000 deck 1440 900 0.06` | Half-open iris (z ≈ 0.055): a dark disc on the ship with an edge ring labelled `scope range n.n nm`, inner rings in, the ship outline tracing, and the sea, wake and silhouettes outside. **Each airborne jet is drawn once** (count against `AIR n`) |
@@ -792,8 +792,19 @@ Changes made while integrating, with the reason for each:
   - `--blast-paint` 0.55 → 0.70 (+27%) and `--blast-hatch` 0.30 → 0.39 (+30%): at row 2's zoom the painted hatching and the dynamic cone were barely visible on the dark deck.
 - **Acceptance text vs build (not changed, recorded):**
   - Row 1: at t = 330 cat 4's stroke steam (S = 320) has fully decayed under §5 #1 (`L ≤ 10 s`). Only the slot wisps remain. The ribbon reads at t ≈ 321-326.
-  - Row 1: beacons follow `eq.deck`, which is `red` through the whole launch, so they show red, not green.
+  - Row 1 / D13 (changed, review V11): `eq.deck` is `red` through the whole launch, which contradicted the narration ("Two minutes. Beacon green."). The island beacons now use `deckStatusAt()` in ship.ts: a `red` deck reads `green` from the Pri-Fly "Launch aircraft." cue (first shot − 120 s) until the last shot; `foul` and `green` from `eq.deck` pass through unchanged. The scope's own-ship `DECK` word uses the same `deckStatusAt()` (final acceptance), so beacon and scope agree.
   - Rows 2 and 4: the bow view at ×2.5 and ×0.6 does not contain 211 (at x ≈ 734 at t = 296, and x ≈ 1200+ at t = 304). Verified with cx/cy framing instead.
   - Row 7b: 304 (x ≈ −750) is outside the wires view at ×0.8.
   - Row 9: §3.F's "closest to 120 px" rule gives a `500 ft` scale bar at z ≈ 0.18; `1000 ft` wins only below z ≈ 0.16.
   - Row 11: `eq.deck` is `foul` at t = 1000 (a jet has just trapped), so the block reads `DECK FOUL`.
+- **Review fixes (recorded at final acceptance):**
+  - Swell (V1): `sprites.ts` swell is now tileable gradient-noise fBm on 8×3 base cells (256 px, 3 octaves, seed 7), and `sea.ts` draws it as two layers whose weights sum to the single swell weight above: 900 ft at 0° with `ramp(z,0.33,0.6)·(1-ramp(z,1.5,3))`, and 5000 ft at 23° with `ramp(z,0.02,0.04)·(1-ramp(z,0.33,0.6))`.
+  - Wake (V2, V6): Kelvin arm hairlines (`--foam-2`, alpha 0.6) are drawn at every zoom; feather length is capped at 25 ft above z 0.3 (blended over 0.2-0.3). Slick and aerated bands are three nested feathered layers with a static 7 ft edge wobble.
+  - Catwalk (PERF-1): one cached outset polygon (12 ft) filled in `--catwalk` with a 1/z `--net` hairline, instead of two 24 ft world strokes.
+  - JBD geometry (DOM-02): `k = 1 - (1 - cos 50°)·raise` and `shadowOffset(10.7·raise)` (research §1.7: 14 ft panel at 50°), replacing 0.6 and 8.2 in §2.3.
+  - Scope (V3, V4, V7, V8, SPEC-03, BUG-1): data blocks get a halo and a glass knockout and draw after the leaders; the 5 nm label search scans in 2.5° steps and may use the strip right of the header; block alpha is `sstep(scope, 0.45, 0.75)` (was 0.3-0.7) so the half-open iris shows no ghost text; every label must sit inside the free canvas (`freeRect`); bolter and post-shot jets count as AIR; the iris covers the whole canvas when the world pass is skipped.
+  - Cat word (V10): RETRACT when `shuttle > 0.001` with no jet on the cat (the shuttle parks at 1 after each shot).
+  - Callouts (V5): offset `max(24, 0.5·L·z + 10)` px, with a leader when the offset is over 40 px.
+  - Airborne (SPEC-01): deck-to-pattern hand-offs are blended over ±3 s in `airborne.ts`, so jets no longer jump 200-650 ft when they leave the deck.
+  - `perf.ts` (PERF-2): `?perf=1` shows frame-interval p95 (the §8 number) and draw-time p95 separately.
+  - Acceptance rows 2, 3, 4 and 7b now carry cx/cy framing (V12).

@@ -3,8 +3,9 @@
 import type { Frame, JetSample } from './frame'
 import type { AircraftEntity, AircraftType, PatternEntity, PatternKeyframe, Timeline, Vec2 } from '../sim/types'
 import type { AircraftState } from '../sim/sample'
-import { samplePattern } from '../sim/sample'
-import { irisGeometry, type Iris } from './scope'
+import { sampleAircraft, samplePattern } from '../sim/sample'
+import { sstep } from './frame'
+import { freeRect, irisGeometry, type Iris } from './scope'
 import { SILHOUETTES } from '../data/silhouettes'
 import { aircraftShadowHeight, nmToWorld, shadowOffset } from './world'
 import { cssVar, tokens } from './tokens'
@@ -68,7 +69,54 @@ export function jetWorldAt(tl: Timeline, id: string, t: number): Vec2 | null {
     const visible = !(status === 'airborne' && (b.status === 'airborne' || u === 0))
     if (visible) return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }
   }
-  return patternWorldAt(e.p, t)?.w ?? null
+  return airWorldAt(e, t)?.w ?? null
+}
+
+// ---------------------------------------------------------------- deck <-> pattern hand-off
+
+/** Seconds over which the pattern position eases back onto its own track after a hand-off. */
+const HANDOFF_S = 3
+
+/**
+ * A moment the deck sample appears or disappears while the pattern track is live, and the offset that makes the
+ * pattern position meet the deck position there: (deck - pattern) in world ft, and the altitude step in ft.
+ */
+interface Handoff { t: number; dx: number; dy: number; dAlt: number }
+const handoffCache = new WeakMap<Entry, Handoff[]>()
+
+function handoffsOf(e: Entry): Handoff[] {
+  let hs = handoffCache.get(e)
+  if (hs) return hs
+  hs = []
+  const EPS = 1e-4
+  const vis = (t: number) => !!sampleAircraft(e.a, t)?.visible
+  for (const k of e.a.track) {
+    const before = vis(k.t - EPS), after = vis(k.t + EPS)
+    if (before === after) continue
+    // the deck position on the visible side of the boundary
+    const s = sampleAircraft(e.a, before ? k.t - EPS : k.t + EPS)
+    const pat = patternWorldAt(e.p, k.t)
+    if (!s || !pat) continue
+    hs.push({ t: k.t, dx: s.x - pat.w.x, dy: s.y - pat.w.y, dAlt: aircraftShadowHeight(s).h - pat.alt })
+  }
+  handoffCache.set(e, hs)
+  return hs
+}
+
+/**
+ * The jet's pattern position in world ft, eased onto the deck sampler's position around each hand-off so a jet
+ * never jumps when it passes between the deck and the pattern (launch, groove entry, bolter, wave-off).
+ * Within HANDOFF_S of a hand-off tH it adds (deck(tH) - pattern(tH))·(1 - sstep(|t - tH|, 0, HANDOFF_S)), and
+ * blends the altitude the same way from aircraftShadowHeight at tH. Closed form in t.
+ */
+function airWorldAt(e: Entry, t: number): { w: Vec2; alt: number; leg: PatternKeyframe['leg'] } | null {
+  const base = patternWorldAt(e.p, t)
+  if (!base) return null
+  let near: Handoff | null = null
+  for (const h of handoffsOf(e)) if (Math.abs(t - h.t) < HANDOFF_S && (!near || Math.abs(t - h.t) < Math.abs(t - near.t))) near = h
+  if (!near) return base
+  const k = 1 - sstep(Math.abs(t - near.t), 0, HANDOFF_S)
+  return { w: { x: base.w.x + near.dx * k, y: base.w.y + near.dy * k }, alt: base.alt + near.dAlt * k, leg: base.leg }
 }
 
 // ---------------------------------------------------------------- silhouettes
@@ -184,18 +232,20 @@ export function airborneJets(f: Frame): AirJet[] {
     if (d?.s?.visible) continue
     const e = map.get(p.aircraftId)
     if (!e) continue
+    const cur = airWorldAt(e, f.t)
+    if (!cur) continue
     // heading from the track tangent: sample(t) - sample(t - 1), or forward when the jet has just appeared
-    let prev = samplePattern(p, f.t - 1)
-    let dx = prev ? s.x - prev.x : 0
-    let dy = prev ? s.y - prev.y : 0
-    if (Math.hypot(dx, dy) < 1e-7) {
-      prev = samplePattern(p, f.t + 1)
-      dx = prev ? prev.x - s.x : 1
-      dy = prev ? prev.y - s.y : 0
+    let prev = airWorldAt(e, f.t - 1)
+    let dx = prev ? cur.w.x - prev.w.x : 0
+    let dy = prev ? cur.w.y - prev.w.y : 0
+    if (Math.hypot(dx, dy) < 1e-3) {
+      prev = airWorldAt(e, f.t + 1)
+      dx = prev ? prev.w.x - cur.w.x : 1
+      dy = prev ? prev.w.y - cur.w.y : 0
     }
     out.push({
-      id: e.a.id, modex: e.a.modex, type: e.a.type, world: nmToWorld(s),
-      heading: (Math.atan2(dy, dx) * 180) / Math.PI, alt: s.alt, leg: s.leg,
+      id: e.a.id, modex: e.a.modex, type: e.a.type, world: cur.w,
+      heading: (Math.atan2(dy, dx) * 180) / Math.PI, alt: cur.alt, leg: cur.leg,
     })
   }
   return out
@@ -272,6 +322,7 @@ export function drawAirborne(f: Frame, air: AirJet[], iris: Iris, selected: stri
     ctx.globalAlpha = la
     const ink = cssVar('--hud-ink')
     const halo = cssVar('--hud-halo')
+    const free = freeRect(f)
     const taken: Box[] = shown.map(({ p, half }) => ({ x0: p.x - half, y0: p.y - half, x1: p.x + half, y1: p.y + half }))
     for (const { j, p, half } of shown) {
       const text = `${j.modex} · ${Math.round(j.alt / 10) * 10}`
@@ -282,13 +333,17 @@ export function drawAirborne(f: Frame, air: AirJet[], iris: Iris, selected: stri
         { x: p.x + g, y: p.y + g * 0.3 }, { x: p.x + g, y: p.y - g * 0.3 - h },
         { x: p.x - g - w, y: p.y + g * 0.3 }, { x: p.x - g - w, y: p.y - g * 0.3 - h },
       ]
-      let pick = cands[0]!
-      for (const c of cands) {
-        const b = { x0: c.x - 1, y0: c.y, x1: c.x + w + 1, y1: c.y + h }
-        if (!taken.some(t => overlaps(t, b)) && !boxInCircle(b, iris)) {
-          pick = c
-          break
-        }
+      // the label box must sit wholly on the free canvas (not under the header, side panel or transport; review V8)
+      const boxAt = (c: Vec2): Box => ({ x0: c.x - 1, y0: c.y, x1: c.x + w + 1, y1: c.y + h })
+      const fits = (b: Box) => b.x0 >= free.x0 && b.y0 >= free.y0 && b.x1 <= free.x1 && b.y1 <= free.y1
+      let pick = cands.find(c => { const b = boxAt(c); return fits(b) && !taken.some(t => overlaps(t, b)) && !boxInCircle(b, iris) })
+        ?? cands.find(c => { const b = boxAt(c); return fits(b) && !boxInCircle(b, iris) })
+      if (!pick) {
+        // no candidate fits: clamp the first into the free canvas, but only if it stays beside its jet
+        const c0 = cands[0]!
+        const c = { x: clamp(c0.x, free.x0 + 1, free.x1 - w - 1), y: clamp(c0.y, free.y0, free.y1 - h) }
+        if (Math.hypot(c.x - c0.x, c.y - c0.y) > 24 || boxInCircle(boxAt(c), iris)) continue
+        pick = c
       }
       taken.push({ x0: pick.x - 1, y0: pick.y, x1: pick.x + w + 1, y1: pick.y + h })
       ctx.strokeStyle = halo
@@ -326,7 +381,8 @@ export function hitAirborne(f: Frame, air: AirJet[], screen: Vec2): string | nul
 
 /** For follow mode: the jet's pattern position in world ft while it is in the pattern. */
 export function airbornePosition(f: Frame, id: string): Vec2 | null {
-  return patternWorldAt(entries(f.tl).get(id)?.p ?? null, f.t)?.w ?? null
+  const e = entries(f.tl).get(id)
+  return e ? airWorldAt(e, f.t)?.w ?? null : null
 }
 
 // ---------------------------------------------------------------- small shared helpers

@@ -12,6 +12,7 @@ import { catStatusAt } from './fxIndex'
 import type { CatId, CatWord } from './frame'
 import { DECK } from '../data/deck'
 import { cssVar, tokens } from './tokens'
+import { deckStatusAt } from './ship'
 
 /** Screen px; r = 0 when closed. */
 export interface Iris { x: number; y: number; r: number }
@@ -37,7 +38,8 @@ export function irisGeometry(f: Frame): Iris {
   const maxD = Math.max(
     Math.hypot(c.x, c.y), Math.hypot(cam.w - c.x, c.y), Math.hypot(c.x, cam.h - c.y), Math.hypot(cam.w - c.x, cam.h - c.y),
   )
-  return { x: c.x, y: c.y, r: Math.pow(s, 1.5) * maxD }
+  // with the world pass skipped (scope >= 0.999) the glass must cover every corner, or stale pixels show
+  return { x: c.x, y: c.y, r: f.b.world ? Math.pow(s, 1.5) * maxD : maxD + 2 }
 }
 
 // ---------------------------------------------------------------- helpers
@@ -66,7 +68,7 @@ function dir(bearingDeg: number): Vec2 {
 }
 
 /** The canvas area not covered by DOM chrome (header, side panel or phone sheet, transport bar). */
-function freeRect(f: Frame): Box {
+export function freeRect(f: Frame): Box {
   const { w, h } = f.cam
   const narrow = w <= 760
   const app = typeof document !== 'undefined' ? document.getElementById('app') : null
@@ -261,7 +263,8 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
   const ink3 = cssVar('--scope-ink-3')
   const blip = cssVar('--scope-blip')
   const alertC = cssVar('--scope-alert')
-  const blockA = sstep(scope, 0.3, 0.7)
+  // Ramp shifted from the spec's 0.3-0.7 (review V7): at half iris the blocks are absent, not ghosted.
+  const blockA = sstep(scope, 0.45, 0.75)
   const plateA = sstep(scope, 0.15, 0.55)
   const bloom = (rPx: number) => sstep(iris.r - rPx, 0, 40)
 
@@ -270,13 +273,14 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
   ctx.arc(c.x, c.y, iris.r, 0, Math.PI * 2)
   ctx.clip()
 
-  // 1. glass
+  // 1. glass (the gradient is kept: data blocks knock out with it, review V3)
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, cam.w, cam.h)
+  const glass = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, Math.max(40, Math.min(iris.r, 5 * nmPx)))
+  glass.addColorStop(0, cssVar('--scope-bg-2'))
+  glass.addColorStop(1, bg)
   {
-    const gr = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, Math.max(40, Math.min(iris.r, 5 * nmPx)))
-    gr.addColorStop(0, cssVar('--scope-bg-2'))
-    gr.addColorStop(1, bg)
+    const gr = glass
     ctx.fillStyle = gr
     ctx.beginPath()
     ctx.arc(c.x, c.y, iris.r, 0, Math.PI * 2)
@@ -355,12 +359,15 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
 
   // own-ship block
   ctx.font = mono
-  const deckWord = f.eq.deck === 'green' ? 'GREEN' : f.eq.deck === 'foul' ? 'FOUL' : 'RED'
+  const deck = deckStatusAt(f) // same word as the island beacons (D13, review V11)
+  const deckWord = deck === 'green' ? 'GREEN' : deck === 'foul' ? 'FOUL' : 'RED'
   let onDeck = 0
   let inAir = air.length
   for (const { s } of f.jets) {
     if (!s || !s.visible) continue
-    if (s.status === 'groove' || s.status === 'waveoff' || s.status === 'airborne') inAir++
+    // same status set as buildTracks' deck tracks, plus a shot jet once it has left the bow
+    if (s.status === 'groove' || s.status === 'waveoff' || s.status === 'bolter' || s.status === 'airborne' ||
+      (s.status === 'shot' && s.x > 1092)) inAir++
     else onDeck++
   }
   const catLine = 'CAT ' + ([1, 2, 3, 4] as CatId[])
@@ -415,7 +422,8 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
     const b = { x0: x0 - 2, y0: y - 7, x1: x0 + w + 2, y1: y + 7 }
     const pad = { x0: b.x0 - 3, y0: b.y0 - 1, x1: b.x1 + 3, y1: b.y1 + 1 }
     if (taken.some(t => overlaps(t, pad))) return false
-    if (b.x0 < 2 || b.y0 < 2 || b.x1 > cam.w - 2 || b.y1 > cam.h - 2) return false
+    // whole label on the free canvas (not under the header, side panel or transport), or not at all (review V8)
+    if (b.x0 < free.x0 || b.y0 < free.y0 || b.x1 > free.x1 || b.y1 > free.y1) return false
     // whole label inside the iris, or not at all
     const r2 = (iris.r - 2) ** 2
     for (const [px, py] of [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]] as const) {
@@ -440,10 +448,31 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
       const d = dir(315)
       label(String(k), c.x + d.x * r + 3, c.y + d.y * r - 6, ink2, a)
     } else {
-      const b = visibleBearing(c, r, 315, free, 30)
-      if (b !== null) {
-        const d = dir(b)
-        label('5 NM · CCZ', c.x + d.x * r + 4, c.y + d.y * r - 8, ink2, a)
+      // Scan the ring every 2.5 deg outward from 315 for a point that is on screen and clear of the DOM chrome
+      // (the free box, plus the strip right of the header above it), then try the label just outside the ring
+      // (up-right, like 1-4) and just inside it. At the pattern view's fit only a short arc near the top-right
+      // corner is visible, so a 315-only or wide-margin search finds nothing.
+      const text = '5 NM · CCZ'
+      const w = textW(ctx, text)
+      const narrow = cam.w <= 760
+      const regions: Box[] = narrow ? [free] : [free, { x0: Math.max(free.x0, 380), y0: 8, x1: free.x1, y1: free.y1 }]
+      const fits = (bx: Box) => regions.some(R => bx.x0 >= R.x0 && bx.y0 >= R.y0 && bx.x1 <= R.x1 && bx.y1 <= R.y1)
+      scan: for (let i = 0; i <= 72; i++) {
+        for (const sgn of i ? [1, -1] : [1]) {
+          const d = dir(315 + sgn * i * 2.5)
+          const p = { x: c.x + d.x * r, y: c.y + d.y * r }
+          if (!regions.some(R => inside(R, p, 10))) continue
+          const inAlign: CanvasTextAlign = d.x >= 0 ? 'right' : 'left'
+          const cands: [number, number, CanvasTextAlign][] = [
+            [p.x + 4, p.y - 8, 'left'],
+            [p.x - d.x * 10, p.y - d.y * 12, inAlign],
+          ]
+          for (const [x, y, al] of cands) {
+            const x0 = al === 'left' ? x : x - w
+            if (!fits({ x0: x0 - 2, y0: y - 7, x1: x0 + w + 2, y1: y + 7 })) continue
+            if (label(text, x, y, ink2, a, al)) break scan
+          }
+        }
       }
     }
   }
@@ -473,9 +502,14 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
       ctx.stroke(tickPath(c, r))
       for (let b = 0; b < 360; b += 30) {
         const d = dir(b)
-        const p = { x: c.x + d.x * (r - 20), y: c.y + d.y * (r - 20) }
-        label(`${String(b).padStart(3, '0')}R`, p.x, p.y, ink2, a, 'center')
-        if (b === 0) label('BRC', p.x, p.y + LINE_H, ink3, a, 'center')
+        // 20 px inside the ring; if that box is off the free canvas, slide inward along the same radial (review V8)
+        for (let inset = 20; inset <= 80; inset += 15) {
+          const p = { x: c.x + d.x * (r - inset), y: c.y + d.y * (r - inset) }
+          if (label(`${String(b).padStart(3, '0')}R`, p.x, p.y, ink2, a, 'center')) {
+            if (b === 0) label('BRC', p.x, p.y + LINE_H, ink3, a, 'center')
+            break
+          }
+        }
       }
       // WOD: the relative wind comes over the bow; arrow outside 000R pointing at the ship, else just inside
       const outX = c.x + r + 12
@@ -585,25 +619,7 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
     ctx.moveTo(bow.x, bow.y)
     ctx.lineTo(lead.x, lead.y)
     ctx.stroke()
-    // own-ship data block
-    if (blockA > 0.01) {
-      ctx.font = mono
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'middle'
-      leaderLine(ctx, shipSp, ownBox, ink3)
-      ownLines.forEach((l, i) => {
-        const y = ownBox.y0 + BLOCK_PAD + LINE_H * (i + 0.5)
-        if (i === 1) {
-          ctx.fillStyle = ink
-          ctx.fillText('DECK ', ownBox.x0 + BLOCK_PAD, y)
-          ctx.fillStyle = deckWord === 'GREEN' ? ink : alertC
-          ctx.fillText(deckWord, ownBox.x0 + BLOCK_PAD + textW(ctx, 'DECK '), y)
-        } else {
-          ctx.fillStyle = i === 0 ? ink : ink2
-          ctx.fillText(l, ownBox.x0 + BLOCK_PAD, y)
-        }
-      })
-    }
+    // the own-ship data block is drawn with the track blocks, after the tracks (review V3)
   }
 
   // 7. tracks
@@ -651,17 +667,46 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
       ctx.lineTo(ahead.x, ahead.y)
       ctx.stroke()
     }
+  }
+
+  // knock out the data-block rects (rings, plate, history and leaders run under them), then the chevrons on top
+  if (blockA > 0.01) {
+    ctx.globalAlpha = blockA * 0.85
+    ctx.fillStyle = glass
+    for (const b of [ownBox, ...placed.map(p => p.box)]) ctx.fillRect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0)
+  }
+  for (const t of lay.tracks) {
+    if (t.stacked) continue
     // symbol: filled chevron, 7 px, along the heading
-    ctx.globalAlpha = brightness(t.sp) * dim
-    ctx.fillStyle = col
+    ctx.globalAlpha = brightness(t.sp) * (flashOff(t) ? 0.3 : 1)
+    ctx.fillStyle = t.alert ? alertC : blip
     chevron(ctx, t.sp, t.heading)
   }
 
-  // data blocks
+  // data blocks: own ship first, then tracks; each line on a --scope-bg halo, as label() does
   if (blockA > 0.01) {
     ctx.font = mono
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
+    ctx.lineJoin = 'round'
+    const haloText = (text: string, x: number, y: number, color: string) => {
+      ctx.lineWidth = 3
+      ctx.strokeStyle = bg
+      ctx.strokeText(text, x, y)
+      ctx.fillStyle = color
+      ctx.fillText(text, x, y)
+    }
+    ctx.globalAlpha = blockA
+    leaderLine(ctx, shipSp, ownBox, ink3)
+    ownLines.forEach((l, i) => {
+      const y = ownBox.y0 + BLOCK_PAD + LINE_H * (i + 0.5)
+      if (i === 1) {
+        haloText('DECK ', ownBox.x0 + BLOCK_PAD, y, ink)
+        haloText(deckWord, ownBox.x0 + BLOCK_PAD + textW(ctx, 'DECK '), y, deckWord === 'GREEN' ? ink : alertC)
+      } else {
+        haloText(l, ownBox.x0 + BLOCK_PAD, y, i === 0 ? ink : ink2)
+      }
+    })
     for (const p of placed) {
       const t = p.t
       const col = t?.alert ? alertC : ink
@@ -669,8 +714,7 @@ export function drawScope(f: Frame, iris: Iris, air: AirJet[], selected: string 
       ctx.globalAlpha = blockA * dim
       leaderLine(ctx, p.anchor, p.box, t?.alert ? alertC : ink3)
       p.lines.forEach((l, i) => {
-        ctx.fillStyle = i === 0 ? col : t?.alert ? alertC : ink2
-        ctx.fillText(l, p.box.x0 + BLOCK_PAD, p.box.y0 + BLOCK_PAD + LINE_H * (i + 0.5))
+        haloText(l, p.box.x0 + BLOCK_PAD, p.box.y0 + BLOCK_PAD + LINE_H * (i + 0.5), i === 0 ? col : t?.alert ? alertC : ink2)
       })
       if (t && t.id === selected) {
         ctx.strokeStyle = col

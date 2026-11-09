@@ -401,5 +401,5 @@ export const VIEWS: { id: string; name: string; key: string; minX: number; minY:
   { id: 'waist', name: 'Waist catapults', key: '3', minX: 280, minY: -150, maxX: 790, maxY: 70 },
   { id: 'wires', name: 'Arresting gear', key: '4', minX: 0, minY: -150, maxX: 640, maxY: 130 },
   { id: 'island', name: 'Island and six-pack', key: '5', minX: 240, minY: -60, maxX: 720, maxY: 130 },
-  { id: 'pattern', name: 'Whole pattern', key: '6', minX: -20112, minY: -19443, maxX: 18774, maxY: 4861 },
+  { id: 'pattern', name: 'Whole pattern', key: '6', minX: -29834, minY: -31000, maxX: 30926, maxY: 31000 },
 ]

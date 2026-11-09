@@ -3,6 +3,7 @@ import type { AircraftEntity, PatternEntity, Timeline } from '../sim/types'
 import { phaseAt, samplePattern, type PatternState } from '../sim/sample'
 import { cssVar, tokens } from './tokens'
 import { CASE_I, NM_FT, racetrack } from './patternGeom'
+import { reducedMotion } from './frame'
 
 /**
  * Overhead-pattern inset: a small schematic of the Case I pattern drawn on the main canvas.
@@ -48,10 +49,6 @@ const FADE_S = 0.3
 let alpha = 0
 let lastNow = 0
 let modexCache: { src: AircraftEntity[]; map: Map<string, string> } | null = null
-const reducedMotion =
-  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-reduced-motion: reduce)')
-    : null
 
 interface Pt {
   x: number
@@ -128,7 +125,7 @@ export function drawPatternInset(
   const now = performance.now()
   const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0
   lastNow = now
-  if (reducedMotion?.matches || dt === 0) alpha = target
+  if (reducedMotion() || dt === 0) alpha = target
   else alpha += Math.sign(target - alpha) * Math.min(Math.abs(target - alpha), dt / FADE_S)
   if (alpha * opts.alphaMul <= 0.001) return
 
@@ -265,28 +262,64 @@ export function drawPatternInset(
   ctx.textBaseline = 'middle'
   ctx.textAlign = 'left'
   ctx.lineJoin = 'round'
-  for (const { s, heading } of samples) {
-    if (stacked && s.leg === 'marshal') continue
-    const sp = clampPt(P(s))
-    const col = s.leg === 'bolter' ? alertC : s.leg === 'departure' ? ink3 : blip
-    ctx.fillStyle = col
+  // chevrons first so no number lands on any aircraft, then each number at the first of 8 offsets that clears
+  // the taken boxes (the scope's data-block rule), then the same 8 further out, else the least-overlapping one
+  const drawn = samples.filter(q => !(stacked && q.s.leg === 'marshal')).map(q => ({ ...q, sp: clampPt(P(q.s)) }))
+  for (const { s, heading, sp } of drawn) {
+    ctx.fillStyle = s.leg === 'bolter' ? alertC : s.leg === 'departure' ? ink3 : blip
     chevron(ctx, sp, heading)
     taken.push({ x0: sp.x - 4, y0: sp.y - 4, x1: sp.x + 4, y1: sp.y + 4 })
+  }
+  const hit = (a: Box, b: Box) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0
+  const lh = 12
+  const labels: Box[] = []
+  for (const { s, sp } of drawn) {
     const label = modexOf(tl, s.aircraftId)
-    if (label) {
-      const w = ctx.measureText(label).width
-      // right of the chevron, else left, else whichever stays in the plot
-      const hits = (x: number) => taken.some(t => t.x0 < x + w && t.x1 > x && t.y0 < sp.y + 6 && t.y1 > sp.y - 6)
-      const fitsR = sp.x + 6 + w <= plot.x + plot.w - 2
-      const lx = fitsR && !hits(sp.x + 6) ? sp.x + 6 : !hits(sp.x - 6 - w) || !fitsR ? sp.x - 6 - w : sp.x + 6
-      // glass-coloured halo so a number crossing a dashed leg still reads
-      ctx.lineWidth = 3
-      ctx.strokeStyle = bg
-      ctx.strokeText(label, lx, sp.y)
-      ctx.fillStyle = s.leg === 'bolter' ? alertC : ink
-      ctx.fillText(label, lx, sp.y)
-      taken.push({ x0: lx, y0: sp.y - 6, x1: lx + w, y1: sp.y + 6 })
+    if (!label) continue
+    const w = ctx.measureText(label).width
+    let best: Box | null = null
+    let bestScore = Infinity
+    for (const g of [5, 12, 22]) {
+      const cands = [
+        { x: sp.x + g, y: sp.y - g - lh }, // NE
+        { x: sp.x + g + 2, y: sp.y - lh / 2 }, // E
+        { x: sp.x + g, y: sp.y + g }, // SE
+        { x: sp.x - w / 2, y: sp.y + g + 2 }, // S
+        { x: sp.x - g - w, y: sp.y + g }, // SW
+        { x: sp.x - g - 2 - w, y: sp.y - lh / 2 }, // W
+        { x: sp.x - g - w, y: sp.y - g - lh }, // NW
+        { x: sp.x - w / 2, y: sp.y - g - 2 - lh }, // N
+      ]
+      for (const c of cands) {
+        const b = { x0: c.x, y0: c.y, x1: c.x + w, y1: c.y + lh }
+        const inside = b.x0 >= plot.x + 2 && b.y0 >= plot.y + 2 && b.x1 <= plot.x + plot.w - 2 && b.y1 <= plot.y + plot.h - 2
+        let score = g * 0.01 + (inside ? 0 : 50)
+        for (const t of taken) if (hit(t, b)) score += 3
+        // another number underneath is far worse than a symbol or the plot edge
+        for (const t of labels) if (hit(t, b)) score += 1000
+        if (score < bestScore) { bestScore = score; best = b }
+      }
+      if (bestScore < 1) break
     }
+    const b = best!
+    // a number pushed out past the first ring keeps a leader to its chevron
+    const cx = Math.min(b.x1, Math.max(b.x0, sp.x)), cy = Math.min(b.y1, Math.max(b.y0, sp.y))
+    if (Math.hypot(cx - sp.x, cy - sp.y) > 9) {
+      ctx.strokeStyle = ink3
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(sp.x, sp.y)
+      ctx.lineTo(cx, cy)
+      ctx.stroke()
+    }
+    // glass-coloured halo so a number crossing a dashed leg still reads
+    ctx.lineWidth = 3
+    ctx.strokeStyle = bg
+    ctx.strokeText(label, b.x0, (b.y0 + b.y1) / 2)
+    ctx.fillStyle = s.leg === 'bolter' ? alertC : ink
+    ctx.fillText(label, b.x0, (b.y0 + b.y1) / 2)
+    taken.push(b)
+    labels.push(b)
   }
   // the downwind label's anchor: the stack ring keeps above it
   const qDown = p({ x: (bc.x + ABEAM_X) / 2, y: DOWNWIND_Y })

@@ -43,10 +43,10 @@ export function aircraftShadowHeight(s: AircraftState): { h: number; onSea: bool
 /** JBD plan geometry. jbd[0],jbd[1] = hinge (forward edge); jbd[3],jbd[2] = aft edge. Raised to 50 deg at raise = 1. */
 export function jbdGeometry(c: Catapult, raise: number): { hinge: [Vec2, Vec2]; top: [Vec2, Vec2]; footprint: Vec2[]; shadow: Vec2[] } {
   const [h0, h1, a1, a0] = c.jbd as [Vec2, Vec2, Vec2, Vec2]
-  const k = 1 - 0.6 * raise
+  const k = 1 - (1 - Math.cos(50 * Math.PI / 180)) * raise  // plan depth 14 cos 50 = 9.0 ft at raise 1
   const t0 = { x: h0.x + (a0.x - h0.x) * k, y: h0.y + (a0.y - h0.y) * k }
   const t1 = { x: h1.x + (a1.x - h1.x) * k, y: h1.y + (a1.y - h1.y) * k }
-  const so = shadowOffset(8.2 * raise)
+  const so = shadowOffset(10.7 * raise)  // raised height 14 sin 50 = 10.7 ft
   return { hinge: [h0, h1], top: [t0, t1], footprint: [h0, h1, t1, t0],
     shadow: [t0, t1, { x: t1.x + so.x, y: t1.y + so.y }, { x: t0.x + so.x, y: t0.y + so.y }] }
 }

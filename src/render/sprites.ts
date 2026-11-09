@@ -265,6 +265,42 @@ function noiseField(W: number, H: number, px: number, py: number, octaves: numbe
   return out
 }
 
+/**
+ * Signed tileable gradient-noise (Perlin) fBm on a size x size tile. Octave o has (px << o) by (py << o)
+ * lattice cells; each lattice point carries a hashed unit gradient. Unlike value noise it has no visible
+ * square or diamond cells, which is what made the far-zoom swell read as camouflage.
+ */
+function gradientField(size: number, px: number, py: number, octaves: number, seed: number, gain: number): Float32Array {
+  const out = new Float32Array(size * size)
+  let amp = 1
+  for (let o = 0; o < octaves; o++) {
+    const Px = px << o, Py = py << o
+    const gx = new Float32Array(Px * Py), gy = new Float32Array(Px * Py)
+    for (let j = 0; j < Py; j++) for (let i = 0; i < Px; i++) {
+      const a = hash01(i, (hash01(j, seed, o) * 1e9) | 0, seed + 31 * o) * Math.PI * 2
+      gx[j * Px + i] = Math.cos(a); gy[j * Px + i] = Math.sin(a)
+    }
+    for (let y = 0; y < size; y++) {
+      const fy = (y * Py) / size, iy = Math.floor(fy), ty = fy - iy
+      const vy = ty * ty * ty * (ty * (ty * 6 - 15) + 10)
+      const r0 = (iy % Py) * Px, r1 = ((iy + 1) % Py) * Px
+      for (let x = 0; x < size; x++) {
+        const fx = (x * Px) / size, ix = Math.floor(fx), tx = fx - ix
+        const vx = tx * tx * tx * (tx * (tx * 6 - 15) + 10)
+        const i0 = ix % Px, i1 = (ix + 1) % Px
+        const n00 = gx[r0 + i0]! * tx + gy[r0 + i0]! * ty
+        const n10 = gx[r0 + i1]! * (tx - 1) + gy[r0 + i1]! * ty
+        const n01 = gx[r1 + i0]! * tx + gy[r1 + i0]! * (ty - 1)
+        const n11 = gx[r1 + i1]! * (tx - 1) + gy[r1 + i1]! * (ty - 1)
+        const top = n00 + (n10 - n00) * vx, bot = n01 + (n11 - n01) * vx
+        out[y * size + x]! += amp * (top + (bot - top) * vy)
+      }
+    }
+    amp *= gain
+  }
+  return out
+}
+
 /** Square tileable fBm normalised to mean 0.5 and SD 0.18 (the same statistics as the generated tile). */
 function fbm(size: number, octaves: number, seed: number, px: number, py: number, gain: number): Float32Array {
   const H = noiseField(size, size, px, py, octaves, seed, gain)
@@ -288,7 +324,12 @@ let chopProcH: Height | null = null
 let chopImgH: { img: HTMLImageElement; h: Height } | null = null
 
 function heightField(kind: 'swell' | 'chop'): Height {
-  if (kind === 'swell') return (swellH ??= { H: fbm(256, 3, 7, 8, 8, 0.5), size: 256 })
+  if (kind === 'swell') {
+    // gradient noise, not value noise (review V1): 256 px, 3 octaves, seed 7. 8 x 3 base cells, so the
+    // crests run long across the tile's y and the swell reads as rows of waves, not as cloud-shadow blobs
+    if (!swellH) { const H = gradientField(256, 8, 3, 3, 7, 0.5); normalise(H); swellH = { H, size: 256 } }
+    return swellH
+  }
   const img = imgs.sea
   if (img) {
     if (!chopImgH || chopImgH.img !== img) {

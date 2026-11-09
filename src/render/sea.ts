@@ -25,8 +25,13 @@ interface SeaLayer {
 }
 
 const LAYERS: SeaLayer[] = [
+  // Swell in two incommensurate periods (review V1): the 900 ft tile only shows once it is >= ~300 px on
+  // screen (z >= 0.33); below that a 5000 ft tile (>= 300 px for z >= 0.06) rotated 23 deg carries the far band, so the sea never
+  // repeats every 50-110 px. The two weights sum to the spec's single swell weight.
+  { kind: 'swell', tileFt: 5000, deg: 23, vx: -(V_SHIP + 6), vy: 2,
+    weight: z => ramp(z, 0.02, 0.04) * (1 - ramp(z, 0.33, 0.6)), trough: 0.32, crest: 0.18, strobe: false },
   { kind: 'swell', tileFt: 900, deg: 0, vx: -(V_SHIP + 6), vy: 2,
-    weight: z => ramp(z, 0.02, 0.04) * (1 - ramp(z, 1.5, 3)), trough: 0.32, crest: 0.18, strobe: false },
+    weight: z => ramp(z, 0.33, 0.6) * (1 - ramp(z, 1.5, 3)), trough: 0.32, crest: 0.18, strobe: false },
   { kind: 'chop', tileFt: 160, deg: 12, vx: -(V_SHIP + 3), vy: -1.5,
     weight: z => ramp(z, 0.12, 0.25), trough: 0.30, crest: 0.35, strobe: true },
   { kind: 'chop', tileFt: 28, deg: -20, vx: -(V_SHIP + 1), vy: 0,
@@ -117,34 +122,73 @@ function taper(hwSpec: number, d: number): number {
   return hwSpec - (hwSpec - TRANSOM_HW) * Math.exp(-d / 70)
 }
 
-/** A band symmetric about y = 0 from the transom aft, half-width hw(d). */
-function bandPath(len: number, hw: (d: number) => number): Path2D {
-  const ds: number[] = [0, 10, 25, 50, 90, 150, 240, 400, 700, len * 0.25, len * 0.5, len]
+/** Band edge samples: every 40 ft out to 6000 ft (so the edge wobble resolves), then geometric to len. */
+function bandDs(len: number): number[] {
+  const ds = [0, 10, 25]
+  for (let d = 40; d <= 6000 && d < len; d += 40) ds.push(d)
+  for (let d = 6000 * 1.25; d < len; d *= 1.25) ds.push(d)
+  ds.push(len)
+  return ds
+}
+
+/** Edge feathering: each band is filled as 3 nested layers, inset by these fractions of its half-width. */
+const FEATHER_INSETS = [0, 0.15, 0.3]
+/** Edge wobble: the foam band's noise1 term at half its amplitude (static in the ship frame; the band paths are built once). */
+const EDGE_WOBBLE_FT = 7
+
+/**
+ * A band symmetric about y = 0 from the transom aft, half-width hw(d), inset by `inset` of the half-width,
+ * its edges wobbled by noise1 (phase differs per side and per layer so the three feather edges never line up).
+ */
+function bandPath(len: number, hw: (d: number) => number, inset: number, phase: number): Path2D {
+  const ds = bandDs(len)
+  const y = (d: number, side: number): number => {
+    const h = hw(d)
+    // fade the wobble in over the first 120 ft so the band still starts at the transom's beam
+    const wob = EDGE_WOBBLE_FT * Math.min(1, d / 120) * noise1(d / 180 + phase + (side < 0 ? 53.17 : 0))
+    return side * Math.max(0, h * (1 - inset) + wob)
+  }
   const p = new Path2D()
   ds.forEach((d, i) => {
-    const x = TRANSOM_X - d, y = hw(d)
-    if (i === 0) p.moveTo(x, y)
-    else p.lineTo(x, y)
+    const x = TRANSOM_X - d
+    if (i === 0) p.moveTo(x, y(d, 1))
+    else p.lineTo(x, y(d, 1))
   })
-  for (let i = ds.length - 1; i >= 0; i--) p.lineTo(TRANSOM_X - ds[i]!, -hw(ds[i]!))
+  for (let i = ds.length - 1; i >= 0; i--) p.lineTo(TRANSOM_X - ds[i]!, y(ds[i]!, -1))
   p.closePath()
   return p
 }
 
+/** The 3 feather layers of one band. */
+function featheredBand(len: number, hw: (d: number) => number, phase: number): Path2D[] {
+  return FEATHER_INSETS.map((k, i) => bandPath(len, hw, k, phase + 31.7 * i))
+}
+
+/** Per-layer alpha so 3 stacked layers composite to the spec alpha `a` in the band's middle: 1 - (1 - p)^3 = a. */
+function layerAlpha(a: number): number {
+  return 1 - Math.pow(1 - Math.min(1, Math.max(0, a)), 1 / FEATHER_INSETS.length)
+}
+
 /** Linear gradient along world x from the transom aft over len ft, 10 stops sampling curve(d). */
-function wakeGradient(ctx: CanvasRenderingContext2D, color: string, len: number, curve: (d: number) => number, geometric: boolean): CanvasGradient {
+function wakeGradient(
+  ctx: CanvasRenderingContext2D, color: string, len: number, curve: (d: number) => number, geometric: boolean, layered = false,
+): CanvasGradient {
   const g = ctx.createLinearGradient(TRANSOM_X, 0, TRANSOM_X - len, 0)
+  const a0 = layered ? +(withAlpha(color, 1).match(/[\d.]+/g)?.[3] ?? 1) : 1
   for (let i = 0; i < 10; i++) {
     const u = i / 9
     const v = geometric ? u * u : u
-    g.addColorStop(v, withAlpha(color, curve(v * len)))
+    const c = curve(v * len)
+    // layered: the stop is one of 3 stacked feather layers, so it carries the per-layer share of the token alpha
+    g.addColorStop(v, layered ? withAlpha(color, a0 > 0 ? layerAlpha(a0 * c) / a0 : 0) : withAlpha(color, c))
   }
   return g
 }
 
 interface Static {
-  slick: Path2D
-  aerated: Path2D
+  /** Feather layers, outermost first (FEATHER_INSETS). */
+  slick: Path2D[]
+  aerated: Path2D[]
   crests: Path2D[]
   crestEnd: number
   /** Feathers in chunks of 8 per arm so only the chunks on screen are stroked (one huge path rasterises slowly on the GPU). */
@@ -168,8 +212,8 @@ function hullHalf(x: number): number {
 }
 
 function buildStatic(): Static {
-  const slick = bandPath(SLICK_L, d => taper(90 + 0.022 * d, d))
-  const aerated = bandPath(AERATED_L, d => taper(70 + 0.018 * d, d))
+  const slick = featheredBand(SLICK_L, d => taper(90 + 0.022 * d, d), 0)
+  const aerated = featheredBand(AERATED_L, d => taper(70 + 0.018 * d, d), 211.3)
 
   // Transverse crests: arcs between the Kelvin arms every 405 ft from 200 ft astern of the ramp, convex aft.
   const crests: Path2D[] = []
@@ -304,8 +348,8 @@ function mainGrads(ctx: CanvasRenderingContext2D): Grads {
   }
   grads = {
     key,
-    slick: wakeGradient(ctx, slickC, SLICK_L, slickCurve, false),
-    aerated: wakeGradient(ctx, aerC, AERATED_L, aeratedCurve, false),
+    slick: wakeGradient(ctx, slickC, SLICK_L, slickCurve, false, true),
+    aerated: wakeGradient(ctx, aerC, AERATED_L, aeratedCurve, false, true),
     foamFlat: wakeGradient(ctx, foam2, FOAM_L, foamCurve, true),
     crest,
   }
@@ -400,10 +444,11 @@ export function drawWake(f: Frame): void {
 
   withWorld(ctx, cam, dpr, () => {
     ctx.globalAlpha = 1
+    // feathered edges: 3 nested layers per band, each at a third-share of the alpha
     ctx.fillStyle = gr.slick
-    ctx.fill(st.slick)
+    for (const p of st.slick) ctx.fill(p)
     ctx.fillStyle = gr.aerated
-    ctx.fill(st.aerated)
+    for (const p of st.aerated) ctx.fill(p)
 
     if (z < 0.6) {
       ctx.strokeStyle = gr.crest
@@ -420,6 +465,14 @@ export function drawWake(f: Frame): void {
     } else {
       // Each feather is one fillRect in its own rotated frame, culled per chunk: measured on a GPU canvas,
       // stroking all feathers as one multi-subpath Path2D cost ~4 ms per frame; rects cost ~0.3-0.6 ms.
+      // The arms themselves as faint hairlines so the feathers read as a V (as the far-zoom path does).
+      ctx.strokeStyle = cssVar('--foam-2')
+      ctx.lineWidth = 1 / z
+      ctx.globalAlpha = 0.6
+      ctx.stroke(st.arms)
+      ctx.globalAlpha = 1
+      // Above z 0.3 the feathers are short crest ticks on the arm (<= 25 ft): full-length strokes read as rain.
+      const capW = ramp(z, 0.2, 0.3)
       const half = FEATHER_STEP * z < 6
       const vb = cam.bounds()
       const m = 200
@@ -438,7 +491,8 @@ export function drawWake(f: Frame): void {
             const px = ch.f[4 * i]! + sx, py = ch.f[4 * i + 1]!
             ctx.setTransform(a, b, -b, a, A * px + ex, A * py + ey)
             ctx.globalAlpha = ch.f[4 * i + 3]!
-            ctx.fillRect(0, -hw, ch.f[4 * i + 2]!, 2 * hw)
+            const len = ch.f[4 * i + 2]!
+            ctx.fillRect(0, -hw, len + (Math.min(len, 25) - len) * capW, 2 * hw)
           }
         }
       }

@@ -7,6 +7,7 @@ import type { Vec2 } from '../sim/types'
 import { tokens, cssVar } from './tokens'
 import { catStatusAt, inWindow } from './fxIndex'
 import { NM_FT, SHIP_MID_X } from './world'
+import { SILHOUETTES } from '../data/silhouettes'
 
 /** Same size rule as the deck labels in deck.ts, so the tag sits exactly where "cat N" did. */
 function labelPx(z: number): number {
@@ -117,8 +118,12 @@ export function drawCallouts(f: Frame): void {
     const tw = spacedWidth(ctx, it.word, spacing)
     ctx.fillStyle = it.color
     const m = CALLOUT_MARGIN
-    let x = p.x + 24
-    let y = p.y - 24
+    // clear the airframe: at close zoom the jet is bigger than the nominal 24 px offset
+    const L = SILHOUETTES[js?.a.type ?? 'FA18E'].length
+    const off = Math.max(24, 0.5 * L * cam.zoom + 10)
+    let x = p.x + off
+    let y = p.y - off
+    let leader = off > 40
     if (p.x < m || p.x > cam.w - m || p.y < m || p.y > cam.h - m) {
       // a wave-off is called while the jet is still out behind the ramp: keep the word on screen where the line
       // from the screen centre to the jet leaves the viewport, with an arrow pointing at the jet
@@ -138,9 +143,23 @@ export function drawCallouts(f: Frame): void {
       ctx.restore()
       x = towardLeft ? qx + CALLOUT_ARROW - 4 : qx - CALLOUT_ARROW + 4 - tw
       y = qy + fontPx * 0.36
+      leader = false
     }
     x = Math.min(cam.w - m - tw, Math.max(m, x))
     y = Math.min(cam.h - m, Math.max(m + fontPx, y))
+    if (leader) {
+      // 1 px leader from the text's lower-left corner back to the jet's screen point
+      ctx.beginPath()
+      ctx.moveTo(Math.round(x) - 2, Math.round(y) + 2)
+      ctx.lineTo(p.x, p.y)
+      ctx.save()
+      ctx.lineWidth = 3
+      ctx.stroke()
+      ctx.strokeStyle = it.color
+      ctx.lineWidth = 1
+      ctx.stroke()
+      ctx.restore()
+    }
     spaced(ctx, it.word, Math.round(x), Math.round(y), spacing)
   }
   ctx.restore()

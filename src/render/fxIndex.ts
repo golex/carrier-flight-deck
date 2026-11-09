@@ -219,6 +219,8 @@ export function catStatusAt(fxi: FxIndex, jets: JetSample[], eq: EquipmentKeyfra
     if (jet.status === 'on-cat') return { word: 'SPOT', countdown: null }
   }
   const sh = eq.shuttle[cat - 1]!
-  if (sh > 0 && sh < 1) return { word: 'RETRACT', countdown: null }
+  // any shuttle off the battery with no jet on it is retracting, including one parked at the end of stroke
+  // (it sits at 1 for ~8 s after the shot before the run aft)
+  if (sh > 0.001) return { word: 'RETRACT', countdown: null }
   return { word: 'SAFE', countdown: null }
 }

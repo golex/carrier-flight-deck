@@ -144,7 +144,7 @@ export function mountUI(d: UIDeps) {
   })
   const viewOpts = el('div', 'views')
   viewOpts.append(labelsBtn, voiceBtn)
-  const hint = el('p', 'sec-note', 'Drag to pan, scroll to zoom. Keys: space play, [ ] speed, 1–5 views, ← → skip 30 s.')
+  const hint = el('p', 'sec-note', 'Drag to pan, scroll to zoom. Keys: space play, [ ] speed, 1–6 views, ← → skip 30 s.')
   viewSec.append(viewTitle, viewList, viewOpts, hint)
 
   const aboutSec = el('section', 'sec about')

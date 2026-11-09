@@ -1,5 +1,9 @@
 import type { Vec2 } from '../sim/types'
-import { reducedMotion } from './frame'
+import { reducedMotion, ZOOM } from './frame'
+
+/** The camera centre stays within this of the ship (ft): 10 nm. */
+const CENTRE_LIMIT_FT = 10 * 6076
+const SHIP_MID_X = 546
 
 /** Camera tween length (s) for a zoom change: longer for bigger jumps; instant under reduced motion. */
 export function tweenDuration(z0: number, z1: number): number {
@@ -22,8 +26,8 @@ export class Camera {
   w = 1
   h = 1
 
-  minZoom = 0.25
-  maxZoom = 14
+  minZoom: number = ZOOM.min
+  maxZoom: number = ZOOM.max
 
   resize(w: number, h: number): void {
     this.w = w
@@ -45,11 +49,19 @@ export class Camera {
     const after = this.screenToWorld(screen)
     this.cx += before.x - after.x
     this.cy += before.y - after.y
+    this.clampCentre()
+  }
+
+  /** Keep the view centre within 10 nm of the ship (|cx - 546| and |cy|). */
+  clampCentre(): void {
+    this.cx = Math.min(SHIP_MID_X + CENTRE_LIMIT_FT, Math.max(SHIP_MID_X - CENTRE_LIMIT_FT, this.cx))
+    this.cy = Math.min(CENTRE_LIMIT_FT, Math.max(-CENTRE_LIMIT_FT, this.cy))
   }
 
   panBy(dxPx: number, dyPx: number): void {
     this.cx -= dxPx / this.zoom
     this.cy -= dyPx / this.zoom
+    this.clampCentre()
   }
 
   /**
@@ -71,6 +83,7 @@ export class Camera {
     const dyPx = t + (this.h - t - b) / 2 - this.h / 2
     this.cx = (minX + maxX) / 2 - dxPx / this.zoom
     this.cy = (minY + maxY) / 2 - dyPx / this.zoom
+    this.clampCentre()
   }
 
   /** Current view for tween targets. */

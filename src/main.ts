@@ -194,7 +194,11 @@ const panel = mountUI({ timeline, clock, ui, goView, views: VIEWS, cam, tween })
     cam.cy = Number(q.get('cy'))
   }
   const z = Number(q.get('zoom'))
-  if (z > 0 && z !== 1) cam.zoomAt({ x: cam.w / 2, y: cam.h / 2 }, z)
+  if (z > 0 && z !== 1) {
+    // zoom about the centre of the free canvas (where goView framed the view), not the raw canvas centre under the panel
+    const ins = chromeInset()
+    cam.zoomAt({ x: ins.left + (cam.w - ins.left - ins.right) / 2, y: ins.top + (cam.h - ins.top - ins.bottom) / 2 }, z)
+  }
   if (Number.isFinite(t) && q.has('t')) clock.seek(t)
   if (q.get('nointro')) {
     document.querySelector('.intro')?.classList.add('hidden')
@@ -305,7 +309,7 @@ function frame(now: number): void {
         const s = sampleCrew(c, t)
         if (!s) continue
         crewStates.set(c.id, s)
-        drawCrew(cctx, cam, c, s, hl, now / 1000)
+        drawCrew(cctx, cam, c, s, hl, f.reduced ? 0 : now / 1000) // cosmetic jiggle and pulse stop under reduced motion
       }
       if (fading && crewLayer) {
         ctx.save()

@@ -1,4 +1,3 @@
-// STUB: lane B fills this in
 // Values are the [EST] figures from docs/design/visuals-spec.md §3.B.
 import type { Vec2 } from '../sim/types'
 

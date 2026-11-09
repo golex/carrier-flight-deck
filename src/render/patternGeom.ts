@@ -1,6 +1,6 @@
-// STUB: lane E fills this in
 // Constants moved out of pattern.ts (values unchanged; research §5.2, nm unless noted).
 import type { PatternKeyframe, Vec2 } from '../sim/types'
+import { STACK_CENTRE, STACK_R } from '../sim/planner/recovery'
 
 export const NM_FT = 6076
 
@@ -17,8 +17,8 @@ export const CASE_I: {
   finalDeg: -9,
   rampX: -546 / NM_FT,
   grooveNm: 0.75,
-  stackCentre: { x: 1.0, y: -1.5 }, // sim/planner/recovery.ts STACK_CENTRE
-  stackR: 1.5, // sim/planner/recovery.ts STACK_R
+  stackCentre: STACK_CENTRE, // the planner's marshal orbit
+  stackR: STACK_R,
 }
 
 /** Nominal Case I path in any mapping (P maps pattern nm to the target space). Same shape as the inset's racetrack. */

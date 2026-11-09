@@ -777,3 +777,23 @@ Write outputs to `tools/out/visuals/acc-*.png`. Every command must exit 0 with n
 1. **Lane 0** foundation (§2): `frame.ts`, `world.ts`, cssVar, tokens, header CSS.
 2. **Lanes A-F in parallel.** Each lane screenshots its own work with temporary local wiring, but **commits no main.ts changes**.
 3. **Lane 0** integrates main.ts (§4), runs §8, and tunes alphas within ±30% of the values here if a readability check fails. Record any change in this file.
+
+### Integration notes (lane 0, after the lanes landed)
+
+Changes made while integrating, with the reason for each:
+
+- **`main.ts`, deep-link zoom anchor:** `?zoom=` now zooms about the centre of the free canvas (the part not under the side panel or phone sheet), which is where `goView` framed the view. It used to zoom about the raw canvas centre, which sits under the panel's left edge, so every `zoom` ≠ 1 shot drifted toward the bow (or stern) of the framed view.
+- **`main.ts`, crew under reduced motion:** `drawCrew` gets a fixed time of 0 when `reducedMotion()` is true. Its hand-signal jiggle and pulse ran on the wall clock, so two `reduced=1` captures at the same t differed (R4, §6).
+- **`deck.ts`, shuttle dot during a stroke:** for the 2 s after a shot on that cat the dot uses `((t - S)/2)²`, the jet's own `'in'` ease and fx.ts's streak. `eq.shuttle` ramps linearly, which put the dot about 75 ft ahead of the nose gear mid-stroke. The equipment timeline is unchanged.
+- **`sprites.ts`, swell lattice:** the procedural swell fBm now starts from 8×8 lattice cells instead of 4×4 (still 256 px, 3 octaves, seed 7). With 4×4, a 900 ft tile held one or two distinct blobs and read as wallpaper at z 0.04-0.2 (rows 9 and 10).
+- **Alpha tuning (all within ±30%):**
+  - swell trough alpha 0.45 → 0.32 (−29%): the far-zoom swell still read as camouflage after the lattice change.
+  - Kelvin feather alpha `0.55·exp(-s/3500)` → `0.40·exp(-s/3500)` (−27%): at the deck view the feathers read as white rain streaks across the whole sea.
+  - `--blast-paint` 0.55 → 0.70 (+27%) and `--blast-hatch` 0.30 → 0.39 (+30%): at row 2's zoom the painted hatching and the dynamic cone were barely visible on the dark deck.
+- **Acceptance text vs build (not changed, recorded):**
+  - Row 1: at t = 330 cat 4's stroke steam (S = 320) has fully decayed under §5 #1 (`L ≤ 10 s`). Only the slot wisps remain. The ribbon reads at t ≈ 321-326.
+  - Row 1: beacons follow `eq.deck`, which is `red` through the whole launch, so they show red, not green.
+  - Rows 2 and 4: the bow view at ×2.5 and ×0.6 does not contain 211 (at x ≈ 734 at t = 296, and x ≈ 1200+ at t = 304). Verified with cx/cy framing instead.
+  - Row 7b: 304 (x ≈ −750) is outside the wires view at ×0.8.
+  - Row 9: §3.F's "closest to 120 px" rule gives a `500 ft` scale bar at z ≈ 0.18; `1000 ft` wins only below z ≈ 0.16.
+  - Row 11: `eq.deck` is `foul` at t = 1000 (a jet has just trapped), so the block reads `DECK FOUL`.

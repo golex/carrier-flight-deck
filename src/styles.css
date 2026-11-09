@@ -86,8 +86,8 @@
   --burner-core: #fff4dc;
   --burner-diamond: rgba(255, 250, 236, 0.85);
   --heat: rgba(255, 255, 255, 0.20);
-  --blast-hatch: rgba(200, 71, 59, 0.30);
-  --blast-paint: rgba(184, 51, 44, 0.55);
+  --blast-hatch: rgba(200, 71, 59, 0.39);
+  --blast-paint: rgba(184, 51, 44, 0.70);
   --tyre-smoke: rgba(236, 236, 232, 0.60);
   --spark: #ffd27a;
   /* HUD on the canvas */

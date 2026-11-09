@@ -5,6 +5,7 @@ import { SILHOUETTES, type SilhouetteSpec } from '../data/silhouettes'
 import { tokens } from './tokens'
 import { drawSignal } from './crew'
 import type { Frame } from './frame'
+import { drawExhaust } from './fx'
 
 interface CompiledSilhouette {
   spec: SilhouetteSpec
@@ -57,8 +58,9 @@ export function drawAircraft(
   ctx.rotate((s.heading * Math.PI) / 180)
   ctx.scale(z, z)
 
-  // afterburner / power glow behind the nozzles
-  if (s.power && s.power > 0 && z > 0.4) {
+  // afterburner / power glow behind the nozzles (lane C's exhaust when the frame is known)
+  if (opts.frame) drawExhaust(ctx, spec, s, z, opts.frame)
+  else if (s.power && s.power > 0 && z > 0.4) {
     const len = s.power === 2 ? 22 : 9
     const grad = ctx.createLinearGradient(-spec.length / 2, 0, -spec.length / 2 - len, 0)
     grad.addColorStop(0, s.power === 2 ? T.burner : T.burnerGlow)
